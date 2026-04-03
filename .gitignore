@@ -1,0 +1,17 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# macOS
+.DS_Store
+
+# Test data
+testFiles/
+
+# Output files
+*.pwx.merged.pwx
+output/
