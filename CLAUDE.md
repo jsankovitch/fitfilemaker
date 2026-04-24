@@ -50,17 +50,24 @@ fitfilemaker/
 └── testFiles/            # gitignored
 ```
 
+## Development Setup
+
+```bash
+source ~/Documents/projects/fitfilemaker/bin/activate
+python3 fitfilemaker_app.py
+```
+
+**The venv must live outside iCloud Drive.** iCloud's file provider adds xattrs that cause Qt's `QDir::entryList()` to return empty for the plugin directory, silently preventing the cocoa platform plugin from loading. The project source can remain in iCloud; only the venv needs to be elsewhere. Current venv: `~/Documents/projects/fitfilemaker/`.
+
 ## Phases
 1. **Phase 1 — CLI (done):**
    - `merge.py` — merges PWX + FIT interactively via CLI
    - `pwx_to_fit.py` — converts PWX → FIT
 2. **Phase 2 — macOS GUI (active, `feature/mac-app`):**
    - `fitfilemaker_app.py` — PySide6 native mac app
-   - Two file pickers (PWX or FIT), field table with radio buttons, merge to FIT
-   - Venv lives at `~/Documents/projects/fitfilemaker/` (outside iCloud).
-     Qt's plugin scanner returns an empty listing for files under iCloud
-     Drive, which breaks cocoa platform plugin load. Keep the project
-     source in iCloud, but the venv must live outside it.
+   - Two file pickers (any format), field table with radio buttons, merge to FIT
+   - Recommendation notes use "File 1"/"File 2" (not "PWX"/"FIT") — works correctly when both files are the same format
+   - Recommendations re-evaluate every time a file is added or changed
 3. **Phase 3 — Web app (shelved, `feature/web-app`):**
    - FastAPI backend + vanilla JS frontend
    - Can resume later; all core logic is in `app/core/` and reusable
