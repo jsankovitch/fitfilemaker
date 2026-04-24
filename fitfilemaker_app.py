@@ -3,8 +3,12 @@
 fitfilemaker — macOS GUI for merging workout files (.fit / .pwx).
 
 Usage:
-    source .venv/bin/activate
+    source ~/Documents/projects/fitfilemaker/bin/activate
     python3 fitfilemaker_app.py
+
+The venv lives outside iCloud on purpose: Qt's plugin scanner returns
+an empty directory listing for files under iCloud Drive, which breaks
+the cocoa platform plugin load on macOS.
 
 Third-party dependencies — see NOTICE file:
     PySide6   LGPL-3.0    Qt for Python
