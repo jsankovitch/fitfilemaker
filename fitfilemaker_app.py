@@ -314,16 +314,14 @@ class FieldTable(QWidget):
             rec, reason = merger.recommend(
                 field, stats1.get(field), stats2.get(field)
             )
-            # Only change selection if neither is already chosen
-            if not self._radios1[row].isChecked() and not self._radios2[row].isChecked():
-                if rec == "a" and in_1:
-                    self._radios1[row].setChecked(True)
-                elif rec == "b" and in_2:
-                    self._radios2[row].setChecked(True)
-                elif in_1:
-                    self._radios1[row].setChecked(True)
-                elif in_2:
-                    self._radios2[row].setChecked(True)
+            if rec == "a" and in_1:
+                self._radios1[row].setChecked(True)
+            elif rec == "b" and in_2:
+                self._radios2[row].setChecked(True)
+            elif in_1:
+                self._radios1[row].setChecked(True)
+            elif in_2:
+                self._radios2[row].setChecked(True)
 
             note_item = self.table.item(row, COL_NOTE)
             if note_item:
@@ -374,11 +372,11 @@ class FieldTable(QWidget):
         self._radios2[row].setEnabled(not checked and self._in2[row])
 
     def _resize(self):
-        rows = self.table.rowCount()
-        row_h = 36
+        total_row_h = sum(self.table.rowHeight(r) for r in range(self.table.rowCount()))
         header_h = self.table.horizontalHeader().height()
-        self.table.setMinimumHeight(header_h + rows * row_h + 4)
-        self.table.setMaximumHeight(header_h + rows * row_h + 4)
+        h = header_h + total_row_h + 12
+        self.table.setMinimumHeight(h)
+        self.table.setMaximumHeight(h)
 
     def choices(self) -> dict:
         """Return {field: 'a' | 'b'} for all non-excluded rows."""

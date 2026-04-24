@@ -198,9 +198,9 @@ def recommend(
     recommended_source is 'a' (PWX), 'b' (FIT), or 'avg'.
     """
     if pwx_stats is None:
-        return "b", "Only available in FIT file"
+        return "b", "Only available in File 2"
     if fit_stats is None:
-        return "a", "Only available in PWX file"
+        return "a", "Only available in File 1"
 
     pwx_make = pwx_stats.get("device_make", "")
     fit_make = fit_stats.get("device_make", "")
@@ -214,20 +214,20 @@ def recommend(
     fit_poor = fit_stats["zero_ratio"] > 0.8 or fit_stats["placeholder_ratio"] > 0.8
 
     if pwx_poor and not fit_poor:
-        return "b", "PWX values appear to be zeros or placeholders"
+        return "b", "File 1 values appear to be zeros or placeholders"
     if fit_poor and not pwx_poor:
-        return "a", "FIT values appear to be zeros or placeholders"
+        return "a", "File 2 values appear to be zeros or placeholders"
 
     # Field-specific device context
     if field in ("pwr", "cad", "spd", "dist") and is_trainer:
-        return "a", "PWX source is a calibrated trainer"
+        return "a", "File 1 source is a calibrated trainer"
     if field == "hr" and is_garmin_fit:
-        return "b", "FIT source is a Garmin HR sensor"
+        return "b", "File 2 source is a Garmin HR sensor"
     if field == "hr" and not pwx_stats["has_variance"]:
-        return "b", "PWX heart rate has no variation (likely not recorded)"
+        return "b", "File 1 heart rate has no variation (likely not recorded)"
 
-    # Default: prefer PWX as the base file
-    return "a", "PWX used as default base"
+    # Default: prefer File 1 as the base
+    return "a", "File 1 used as default base"
 
 
 # ---------------------------------------------------------------------------
