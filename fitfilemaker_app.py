@@ -12,27 +12,26 @@ Third-party dependencies — see NOTICE file:
     fit-tool  BSD-3       FIT file writing
 """
 
+import re
 import sys
 from pathlib import Path
 
-# Project root on path so app.core.* imports work
 sys.path.insert(0, str(Path(__file__).parent))
-
-from datetime import timedelta
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtWidgets import (
-    QApplication, QButtonGroup, QCheckBox, QFileDialog, QFrame,
-    QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMainWindow,
-    QMessageBox, QPushButton, QRadioButton, QScrollArea,
-    QSizePolicy, QVBoxLayout, QWidget,
+    QApplication, QButtonGroup, QCheckBox, QFileDialog, QFormLayout,
+    QFrame, QGroupBox, QHBoxLayout, QHeaderView, QLabel, QLineEdit,
+    QMainWindow, QMessageBox, QPushButton, QRadioButton,
+    QSizePolicy, QTabWidget, QTableWidget, QTableWidgetItem,
+    QVBoxLayout, QWidget,
 )
 
 from app.core import fit as fit_core
 from app.core import merger
 from app.core import pwx as pwx_core
-from app.core.fit import FIT_TO_PWX
+from app.core.fit import FIT_TO_PWX, PWX_TO_FIT
 from app.core.security import detect_and_validate
 
 # ---------------------------------------------------------------------------
@@ -48,34 +47,55 @@ FIELD_DISPLAY = {
     "alt":  "Altitude",
 }
 
-ACCENT  = "#0066CC"
-BG_CARD = "#F5F5F7"
+ACCENT = "#0066CC"
 
 
 # ---------------------------------------------------------------------------
-# Helpers — file loading
+# App-wide palette (Fusion + Apple-inspired light colours)
 # ---------------------------------------------------------------------------
 
-def load_file(path: Path) -> tuple[str, list, object]:
-    """
-    Load a PWX or FIT file.  Returns (file_type, samples, meta).
+def _build_palette() -> QPalette:
+    p = QPalette()
+    p.setColor(QPalette.ColorRole.Window,          QColor("#F5F5F7"))
+    p.setColor(QPalette.ColorRole.WindowText,      QColor("#1C1C1E"))
+    p.setColor(QPalette.ColorRole.Base,            QColor("#FFFFFF"))
+    p.setColor(QPalette.ColorRole.AlternateBase,   QColor("#F5F5F7"))
+    p.setColor(QPalette.ColorRole.ToolTipBase,     QColor("#FFFFFF"))
+    p.setColor(QPalette.ColorRole.ToolTipText,     QColor("#1C1C1E"))
+    p.setColor(QPalette.ColorRole.Text,            QColor("#1C1C1E"))
+    p.setColor(QPalette.ColorRole.Button,          QColor("#E5E5EA"))
+    p.setColor(QPalette.ColorRole.ButtonText,      QColor("#1C1C1E"))
+    p.setColor(QPalette.ColorRole.BrightText,      QColor("#FFFFFF"))
+    p.setColor(QPalette.ColorRole.Link,            QColor(ACCENT))
+    p.setColor(QPalette.ColorRole.Highlight,       QColor(ACCENT))
+    p.setColor(QPalette.ColorRole.HighlightedText, QColor("#FFFFFF"))
+    # Disabled
+    p.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.WindowText, QColor("#AEAEB2"))
+    p.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Text,       QColor("#AEAEB2"))
+    p.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.ButtonText, QColor("#AEAEB2"))
+    return p
 
-    samples  — list of (offset_seconds, {pwx_field: float})
-    meta     — for PWX: (ElementTree, start_local)
-                for FIT: start_utc (datetime)
+
+# ---------------------------------------------------------------------------
+# File loading helpers
+# ---------------------------------------------------------------------------
+
+def load_file(path: Path) -> tuple:
+    """Returns (file_type, samples, meta).
+    samples — list of (offset_seconds, {pwx_field: float})
+    meta    — PWX: (ElementTree, start_local, device_make) | FIT: start_utc
     """
     data = path.read_bytes()
     file_type = detect_and_validate(data, path.name)
 
     if file_type == "pwx":
         tree, start_local, samples = pwx_core.parse(path)
-        device_make = _pwx_device_make(tree)
-        return file_type, samples, (tree, start_local, device_make)
-
-    else:  # fit
-        records = fit_core.parse(path)
+        make = _pwx_device_make(tree)
+        return file_type, samples, (tree, start_local, make)
+    else:
+        records   = fit_core.parse(path)
         start_utc = records[0]["timestamp"]
-        samples = _fit_records_to_samples(records, start_utc)
+        samples   = _fit_records_to_samples(records, start_utc)
         return file_type, samples, start_utc
 
 
@@ -83,17 +103,17 @@ def _pwx_device_make(tree) -> str | None:
     import xml.etree.ElementTree as ET
     NS = {"p": "http://www.peaksware.com/PWX/1/0"}
     workout = tree.getroot().find("p:workout", NS)
-    if workout is None:
+    if not workout:
         return None
     device = workout.find("p:device", NS)
-    if device is None:
+    if not device:
         return None
     make = device.find("p:make", NS)
     return make.text if make is not None else None
 
 
 def _fit_records_to_samples(records: list, start_utc) -> list:
-    """Convert FIT records (absolute timestamps) to (offset_sec, {pwx_field: val})."""
+    from datetime import timedelta
     samples = []
     for r in records:
         offset = round((r["timestamp"] - start_utc).total_seconds())
@@ -108,140 +128,289 @@ def _fit_records_to_samples(records: list, start_utc) -> list:
     return samples
 
 
-def samples_start_utc(file_type: str, meta) -> object:
-    """Return the start UTC datetime for a loaded file."""
+def _samples_to_fit_records(samples: list, start_utc) -> list:
+    from datetime import timedelta
+    records = []
+    for offset, fields in samples:
+        ts  = start_utc + timedelta(seconds=offset)
+        rec = {"timestamp": ts}
+        for pwx_field, val in fields.items():
+            rec[PWX_TO_FIT.get(pwx_field, pwx_field)] = val
+        records.append(rec)
+    return records
+
+
+def start_utc_for(file_type: str, meta):
     if file_type == "pwx":
         _, start_local, _ = meta
         return pwx_core.local_to_utc(start_local, pwx_core.system_utc_offset())
-    else:
-        return meta  # already a UTC datetime
+    return meta
 
 
-def samples_device_make(file_type: str, meta) -> str | None:
+def device_make_for(file_type: str, meta) -> str | None:
     if file_type == "pwx":
-        _, _, device_make = meta
-        return device_make
+        _, _, make = meta
+        return make
     return None
 
 
 # ---------------------------------------------------------------------------
-# Field row widget
+# Centred-widget helper for table cells
 # ---------------------------------------------------------------------------
 
-class FieldRow(QWidget):
-    """One row in the field table: label | ○ File 1 | ○ File 2 | □ Exclude."""
-
-    def __init__(self, field: str, in_1: bool, in_2: bool, recommended: str, reason: str):
-        super().__init__()
-        self.field       = field
-        self.recommended = recommended
-
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 4, 8, 4)
-
-        # Field label
-        lbl = QLabel(FIELD_DISPLAY.get(field, field))
-        lbl.setMinimumWidth(110)
-        lbl.setFont(QFont(lbl.font().family(), 13))
-        layout.addWidget(lbl)
-
-        # Radio buttons
-        self._group = QButtonGroup(self)
-        self.radio1 = QRadioButton("File 1")
-        self.radio2 = QRadioButton("File 2")
-        self._group.addButton(self.radio1, 1)
-        self._group.addButton(self.radio2, 2)
-
-        self.radio1.setEnabled(in_1)
-        self.radio2.setEnabled(in_2)
-
-        # Pre-select recommended source
-        if recommended == "a" and in_1:
-            self.radio1.setChecked(True)
-        elif recommended == "b" and in_2:
-            self.radio2.setChecked(True)
-        elif in_1:
-            self.radio1.setChecked(True)
-        elif in_2:
-            self.radio2.setChecked(True)
-
-        layout.addWidget(self.radio1)
-        layout.addSpacing(16)
-        layout.addWidget(self.radio2)
-        layout.addSpacing(24)
-
-        # Exclude checkbox
-        self.exclude = QCheckBox("Exclude")
-        self.exclude.toggled.connect(self._on_exclude)
-        layout.addWidget(self.exclude)
-
-        layout.addStretch()
-
-        # Recommendation hint
-        hint = QLabel(f"  ★ {reason}")
-        hint.setStyleSheet("color: #888; font-size: 11px;")
-        layout.addWidget(hint)
-
-    def _on_exclude(self, checked: bool):
-        self.radio1.setEnabled(not checked and self._original_in_1)
-        self.radio2.setEnabled(not checked and self._original_in_2)
-
-    def showEvent(self, event):
-        # Capture original enabled state after layout
-        self._original_in_1 = self.radio1.isEnabled() or self.exclude.isChecked()
-        self._original_in_2 = self.radio2.isEnabled() or self.exclude.isChecked()
-        super().showEvent(event)
-
-    def source(self) -> str | None:
-        """Return 'a', 'b', or None (excluded)."""
-        if self.exclude.isChecked():
-            return None
-        if self.radio1.isChecked():
-            return "a"
-        if self.radio2.isChecked():
-            return "b"
-        return None
+def _centred(widget: QWidget) -> QWidget:
+    container = QWidget()
+    layout    = QHBoxLayout(container)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    layout.addWidget(widget)
+    return container
 
 
 # ---------------------------------------------------------------------------
-# File panel widget
+# File panel
 # ---------------------------------------------------------------------------
 
 class FilePanel(QGroupBox):
     def __init__(self, label: str):
         super().__init__(label)
         layout = QVBoxLayout(self)
+        layout.setSpacing(8)
 
         self.btn = QPushButton("Browse…")
-        self.btn.setFixedWidth(100)
+        self.btn.setFixedWidth(90)
         layout.addWidget(self.btn)
 
         self.status = QLabel("No file selected")
-        self.status.setStyleSheet("color: #888; font-size: 12px;")
+        self.status.setStyleSheet("color: #8E8E93;")
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
 
-        self.path       = None
-        self.file_type  = None
-        self.samples    = None
-        self.meta       = None
+        self.path      = None
+        self.file_type = None
+        self.samples   = None
+        self.meta      = None
 
     def set_loaded(self, path: Path, file_type: str, samples: list, meta):
-        self.path      = path
-        self.file_type = file_type
-        self.samples   = samples
-        self.meta      = meta
-
-        note = " (converted to FIT internally)" if file_type == "pwx" else ""
+        self.path = path; self.file_type = file_type
+        self.samples = samples; self.meta = meta
+        note = " → FIT internally" if file_type == "pwx" else ""
         self.status.setText(
             f"<b>{path.name}</b><br>"
-            f"<span style='color:#0066CC'>{file_type.upper()}{note}</span><br>"
-            f"{len(samples)} samples"
+            f"<span style='color:{ACCENT}'>{file_type.upper()}{note}</span>"
+            f"&nbsp;&nbsp;{len(samples):,} samples"
         )
 
     def clear(self):
         self.path = self.file_type = self.samples = self.meta = None
         self.status.setText("No file selected")
+
+
+# ---------------------------------------------------------------------------
+# Field table (QTableWidget-based for proper column alignment)
+# ---------------------------------------------------------------------------
+
+COL_FIELD   = 0
+COL_FILE1   = 1
+COL_FILE2   = 2
+COL_EXCLUDE = 3
+COL_NOTE    = 4
+
+COL_WIDTHS  = [130, 70, 70, 70, 0]   # 0 = stretch
+
+
+class FieldTable(QWidget):
+    """Displays field-selection rows with radio buttons and an exclude checkbox."""
+
+    def __init__(self):
+        super().__init__()
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        self.table = QTableWidget(0, 5)
+        self.table.setHorizontalHeaderLabels(
+            ["Field", "File 1", "File 2", "Exclude", "Note"]
+        )
+        self.table.verticalHeader().setVisible(False)
+        self.table.setShowGrid(False)
+        self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
+        self.table.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.table.setAlternatingRowColors(True)
+
+        hh = self.table.horizontalHeader()
+        for col, width in enumerate(COL_WIDTHS):
+            if width:
+                hh.resizeSection(col, width)
+            else:
+                hh.setSectionResizeMode(col, QHeaderView.ResizeMode.Stretch)
+        for col in range(len(COL_WIDTHS) - 1):
+            hh.setSectionResizeMode(col, QHeaderView.ResizeMode.Fixed)
+        hh.setSectionResizeMode(COL_NOTE, QHeaderView.ResizeMode.Stretch)
+
+        hh.setStyleSheet(
+            "QHeaderView::section { background: #E5E5EA; border: none; "
+            "padding: 4px 8px; font-weight: 600; font-size: 12px; color: #3C3C43; }"
+        )
+        self.table.setStyleSheet(
+            "QTableWidget { border: none; outline: none; } "
+            "QTableWidget::item { padding: 2px 8px; }"
+        )
+
+        layout.addWidget(self.table)
+
+        # Per-row state
+        self._groups:  list[QButtonGroup] = []
+        self._radios1: list[QRadioButton] = []
+        self._radios2: list[QRadioButton] = []
+        self._excludes: list[QCheckBox]   = []
+        self._in1:     list[bool]         = []
+        self._in2:     list[bool]         = []
+
+    @property
+    def fields(self) -> list[str]:
+        return [
+            self.table.item(r, COL_FIELD).data(Qt.ItemDataRole.UserRole)
+            for r in range(self.table.rowCount())
+        ]
+
+    def populate(self, stats1: dict, stats2: dict):
+        """Build or refresh rows for all fields in either file."""
+        all_fields = sorted(set(stats1) | set(stats2))
+        existing   = self.fields
+
+        # Add rows for new fields
+        for field in all_fields:
+            if field not in existing:
+                self._add_row(field)
+
+        # Update enable state and recommendations for every row
+        for row, field in enumerate(self.fields):
+            in_1 = field in stats1
+            in_2 = field in stats2
+            self._in1[row] = in_1
+            self._in2[row] = in_2
+
+            self._radios1[row].setEnabled(in_1 and not self._excludes[row].isChecked())
+            self._radios2[row].setEnabled(in_2 and not self._excludes[row].isChecked())
+
+            rec, reason = merger.recommend(
+                field, stats1.get(field), stats2.get(field)
+            )
+            # Only change selection if neither is already chosen
+            if not self._radios1[row].isChecked() and not self._radios2[row].isChecked():
+                if rec == "a" and in_1:
+                    self._radios1[row].setChecked(True)
+                elif rec == "b" and in_2:
+                    self._radios2[row].setChecked(True)
+                elif in_1:
+                    self._radios1[row].setChecked(True)
+                elif in_2:
+                    self._radios2[row].setChecked(True)
+
+            note_item = self.table.item(row, COL_NOTE)
+            if note_item:
+                note_item.setText(f"★  {reason}" if (in_1 and in_2) else "")
+
+        self._resize()
+
+    def _add_row(self, field: str):
+        row = self.table.rowCount()
+        self.table.insertRow(row)
+        self.table.setRowHeight(row, 36)
+
+        # Field name
+        item = QTableWidgetItem(FIELD_DISPLAY.get(field, field))
+        item.setData(Qt.ItemDataRole.UserRole, field)
+        item.setFlags(Qt.ItemFlag.ItemIsEnabled)
+        self.table.setItem(row, COL_FIELD, item)
+
+        # Radio buttons (no text — header provides context)
+        group  = QButtonGroup(self)
+        radio1 = QRadioButton()
+        radio2 = QRadioButton()
+        group.addButton(radio1, 1)
+        group.addButton(radio2, 2)
+        self.table.setCellWidget(row, COL_FILE1,   _centred(radio1))
+        self.table.setCellWidget(row, COL_FILE2,   _centred(radio2))
+
+        # Exclude checkbox (no text)
+        exclude = QCheckBox()
+        exclude.toggled.connect(lambda checked, r=row: self._on_exclude(r, checked))
+        self.table.setCellWidget(row, COL_EXCLUDE, _centred(exclude))
+
+        # Note (left-aligned)
+        note_item = QTableWidgetItem("")
+        note_item.setForeground(QColor("#8E8E93"))
+        note_item.setFlags(Qt.ItemFlag.ItemIsEnabled)
+        self.table.setItem(row, COL_NOTE, note_item)
+
+        self._groups.append(group)
+        self._radios1.append(radio1)
+        self._radios2.append(radio2)
+        self._excludes.append(exclude)
+        self._in1.append(False)
+        self._in2.append(False)
+
+    def _on_exclude(self, row: int, checked: bool):
+        self._radios1[row].setEnabled(not checked and self._in1[row])
+        self._radios2[row].setEnabled(not checked and self._in2[row])
+
+    def _resize(self):
+        rows = self.table.rowCount()
+        row_h = 36
+        header_h = self.table.horizontalHeader().height()
+        self.table.setMinimumHeight(header_h + rows * row_h + 4)
+        self.table.setMaximumHeight(header_h + rows * row_h + 4)
+
+    def choices(self) -> dict:
+        """Return {field: 'a' | 'b'} for all non-excluded rows."""
+        result = {}
+        for row, field in enumerate(self.fields):
+            if self._excludes[row].isChecked():
+                continue
+            if self._radios1[row].isChecked():
+                result[field] = "a"
+            elif self._radios2[row].isChecked():
+                result[field] = "b"
+        return result
+
+
+# ---------------------------------------------------------------------------
+# Workout details tab
+# ---------------------------------------------------------------------------
+
+class WorkoutDetailsTab(QWidget):
+    def __init__(self):
+        super().__init__()
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(16, 16, 16, 16)
+        outer.setSpacing(12)
+
+        form = QFormLayout()
+        form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+        form.setSpacing(10)
+
+        self.name_edit = QLineEdit()
+        self.name_edit.setPlaceholderText("e.g. Morning Ride")
+        self.name_edit.setMaxLength(100)
+        form.addRow("Workout name:", self.name_edit)
+
+        outer.addLayout(form)
+        outer.addStretch()
+
+        note = QLabel("Additional metadata fields will appear here in future releases.")
+        note.setStyleSheet("color: #8E8E93; font-size: 12px;")
+        outer.addWidget(note)
+
+    @property
+    def workout_name(self) -> str:
+        return self.name_edit.text().strip()
+
+    @workout_name.setter
+    def workout_name(self, value: str):
+        self.name_edit.setText(value)
 
 
 # ---------------------------------------------------------------------------
@@ -252,115 +421,117 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("fitfilemaker")
-        self.setMinimumWidth(700)
-        self._field_rows: list[FieldRow] = []
+        self.setMinimumWidth(720)
+
+        # Overlap state (set after both files analysed)
+        self._fit_overlap  = None
+        self._pwx_overlap  = None
+        self._start1_utc   = None
 
         central = QWidget()
         self.setCentralWidget(central)
         root = QVBoxLayout(central)
-        root.setSpacing(16)
-        root.setContentsMargins(20, 20, 20, 20)
+        root.setSpacing(14)
+        root.setContentsMargins(24, 20, 24, 20)
 
         # Title
         title = QLabel("fitfilemaker")
-        title.setFont(QFont(title.font().family(), 22, QFont.Weight.Bold))
+        f = title.font()
+        f.setPointSize(22)
+        f.setWeight(QFont.Weight.Bold)
+        title.setFont(f)
         subtitle = QLabel("Select two workout files, choose which data to keep, and merge.")
-        subtitle.setStyleSheet("color: #888;")
+        subtitle.setStyleSheet("color: #8E8E93;")
         root.addWidget(title)
         root.addWidget(subtitle)
-
-        root.addWidget(self._make_separator())
+        root.addWidget(_hline())
 
         # File panels
-        panels_row = QHBoxLayout()
+        panels = QHBoxLayout()
+        panels.setSpacing(12)
         self.panel1 = FilePanel("File 1")
         self.panel2 = FilePanel("File 2")
         self.panel1.btn.clicked.connect(lambda: self._browse(self.panel1))
         self.panel2.btn.clicked.connect(lambda: self._browse(self.panel2))
-        panels_row.addWidget(self.panel1)
-        panels_row.addWidget(self.panel2)
-        root.addLayout(panels_row)
+        panels.addWidget(self.panel1)
+        panels.addWidget(self.panel2)
+        root.addLayout(panels)
+        root.addWidget(_hline())
 
-        root.addWidget(self._make_separator())
+        # Tabs (hidden until at least one file is loaded)
+        self.tabs = QTabWidget()
+        self.tabs.hide()
 
-        # Field table (hidden until both files loaded)
-        self.field_area_label = QLabel("FIELD SELECTION")
-        self.field_area_label.setStyleSheet(
-            "color: #555; font-size: 11px; font-weight: bold; letter-spacing: 1px;"
-        )
-        self.field_area_label.hide()
-        root.addWidget(self.field_area_label)
+        self.field_table   = FieldTable()
+        self.details_tab   = WorkoutDetailsTab()
+        self.details_tab.name_edit.textChanged.connect(self._sync_filename)
 
-        # Column headers
-        self.field_header = self._make_field_header()
-        self.field_header.hide()
-        root.addWidget(self.field_header)
+        self.tabs.addTab(self.field_table, "Fields")
+        self.tabs.addTab(self.details_tab, "Workout Details")
+        root.addWidget(self.tabs)
 
-        # Scroll area for field rows
-        self.scroll = QScrollArea()
-        self.scroll.setWidgetResizable(True)
-        self.scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self.scroll.hide()
-        self.field_container = QWidget()
-        self.field_layout    = QVBoxLayout(self.field_container)
-        self.field_layout.setSpacing(0)
-        self.field_layout.setContentsMargins(0, 0, 0, 0)
-        self.field_layout.addStretch()
-        self.scroll.setWidget(self.field_container)
-        root.addWidget(self.scroll)
-
-        root.addWidget(self._make_separator())
+        root.addWidget(_hline())
 
         # Output row
-        output_row = QHBoxLayout()
-        out_lbl = QLabel("Output filename:")
-        out_lbl.setFixedWidth(130)
-        output_row.addWidget(out_lbl)
+        out_row = QHBoxLayout()
+        out_row.setSpacing(8)
+        out_row.addWidget(QLabel("Output filename:"))
 
         self.filename_edit = QLineEdit()
         self.filename_edit.setPlaceholderText("merged_workout")
-        output_row.addWidget(self.filename_edit)
+        self.filename_edit.textChanged.connect(self._sync_name_from_filename)
+        out_row.addWidget(self.filename_edit)
 
-        ext_lbl = QLabel(".fit")
-        ext_lbl.setStyleSheet("color: #888;")
-        output_row.addWidget(ext_lbl)
+        ext = QLabel(".fit")
+        ext.setStyleSheet("color: #8E8E93;")
+        out_row.addWidget(ext)
 
-        self.merge_btn = QPushButton("Merge & Save →")
+        self.merge_btn = QPushButton("Merge and Save")
         self.merge_btn.setEnabled(False)
-        self.merge_btn.setFixedWidth(140)
+        self.merge_btn.setFixedWidth(150)
         self.merge_btn.setStyleSheet(
-            f"QPushButton {{ background: {ACCENT}; color: white; border-radius: 6px; "
-            f"padding: 8px 16px; font-weight: bold; }}"
-            f"QPushButton:disabled {{ background: #ccc; }}"
-            f"QPushButton:hover:!disabled {{ background: #0055AA; }}"
+            "QPushButton {"
+            f"  background-color: {ACCENT}; color: white;"
+            "  border-radius: 6px; padding: 7px 16px;"
+            "  font-weight: 600;"
+            "}"
+            "QPushButton:hover:!disabled { background-color: #0055B3; }"
+            "QPushButton:disabled { background-color: #C7C7CC; color: white; }"
         )
         self.merge_btn.clicked.connect(self._merge)
-        output_row.addWidget(self.merge_btn)
+        out_row.addWidget(self.merge_btn)
+        root.addLayout(out_row)
 
-        root.addLayout(output_row)
+        # Prevent filename sync from looping
+        self._syncing = False
 
     # ------------------------------------------------------------------
-    # UI helpers
+    # Helpers
     # ------------------------------------------------------------------
 
-    def _make_separator(self) -> QFrame:
-        line = QFrame()
-        line.setFrameShape(QFrame.Shape.HLine)
-        line.setStyleSheet("color: #ddd;")
-        return line
+    def _sync_filename(self, name: str):
+        """Workout name → filename (without disturbing cursor)."""
+        if self._syncing:
+            return
+        self._syncing = True
+        safe = re.sub(r'[^\w\-. ]', '', name).strip()
+        if safe:
+            self.filename_edit.setText(safe)
+        self._syncing = False
 
-    def _make_field_header(self) -> QWidget:
-        w = QWidget()
-        w.setStyleSheet("background: #EBEBED; border-radius: 4px;")
-        h = QHBoxLayout(w)
-        h.setContentsMargins(8, 4, 8, 4)
-        for text, width in [("Field", 110), ("File 1", 70), ("File 2", 70), ("Exclude", 70)]:
-            lbl = QLabel(text)
-            lbl.setFixedWidth(width)
-            lbl.setStyleSheet("font-weight: bold; font-size: 12px; color: #555;")
-            h.addWidget(lbl)
-        h.addStretch()
-        return w
+    def _sync_name_from_filename(self, text: str):
+        """Filename → workout name (keeps them loosely in sync)."""
+        if self._syncing:
+            return
+        self._syncing = True
+        self.details_tab.name_edit.setText(text)
+        self._syncing = False
+
+    def _set_suggested_name(self, value: str):
+        self._syncing = True
+        self.filename_edit.setText(value)
+        self.details_tab.workout_name = value
+        self._syncing = False
 
     # ------------------------------------------------------------------
     # File browsing
@@ -373,7 +544,6 @@ class MainWindow(QMainWindow):
         )
         if not path_str:
             return
-
         path = Path(path_str)
         try:
             file_type, samples, meta = load_file(path)
@@ -388,110 +558,73 @@ class MainWindow(QMainWindow):
         self._update_fields()
 
     # ------------------------------------------------------------------
-    # Field table
+    # Field table population
     # ------------------------------------------------------------------
 
     def _update_fields(self):
-        """Rebuild field table when both files are loaded."""
-        if not (self.panel1.samples and self.panel2.samples):
-            self._hide_fields()
+        has_1 = self.panel1.samples is not None
+        has_2 = self.panel2.samples is not None
+
+        if not has_1:
+            self.tabs.hide()
+            self.merge_btn.setEnabled(False)
             return
 
-        # Get UTC start times for overlap detection
-        try:
-            start1 = samples_start_utc(self.panel1.file_type, self.panel1.meta)
-            start2 = samples_start_utc(self.panel2.file_type, self.panel2.meta)
+        # At least File 1 is loaded — show tabs
+        self.tabs.show()
 
-            # Convert file 2 samples to FIT-style records for merger
-            fit_records2 = _samples_to_fit_records(self.panel2.samples, start2)
-            fit_overlap, pwx_overlap = merger.find_overlap(
-                start1, self.panel1.samples, fit_records2
-            )
-        except ValueError as e:
-            QMessageBox.warning(self, "No overlap", str(e))
-            self._hide_fields()
-            return
+        # Build stats for whichever files we have
+        start1 = start_utc_for(self.panel1.file_type, self.panel1.meta)
+        make1  = device_make_for(self.panel1.file_type, self.panel1.meta)
+        stats1 = merger.analyze_pwx_fields(self.panel1.samples, make1)
+        stats2: dict = {}
 
-        # Analyze fields
-        make1 = samples_device_make(self.panel1.file_type, self.panel1.meta)
-        make2 = samples_device_make(self.panel2.file_type, self.panel2.meta)
-        stats1 = merger.analyze_pwx_fields(pwx_overlap, make1)
-        stats2 = merger.analyze_fit_fields(fit_overlap, make2)
+        if has_2:
+            try:
+                start2      = start_utc_for(self.panel2.file_type, self.panel2.meta)
+                fit_records2 = _samples_to_fit_records(self.panel2.samples, start2)
+                fit_overlap, pwx_overlap = merger.find_overlap(
+                    start1, self.panel1.samples, fit_records2
+                )
+                make2  = device_make_for(self.panel2.file_type, self.panel2.meta)
+                stats2 = merger.analyze_fit_fields(fit_overlap, make2)
 
-        all_fields = sorted(set(stats1) | set(stats2))
+                self._fit_overlap = fit_overlap
+                self._pwx_overlap = pwx_overlap
+                self._start1_utc  = start1
+            except ValueError as e:
+                QMessageBox.warning(self, "No overlap", str(e))
+                has_2 = False
 
-        # Clear old rows
-        self._field_rows.clear()
-        while self.field_layout.count() > 1:  # keep the trailing stretch
-            item = self.field_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+        self.field_table.populate(stats1, stats2)
+        self.merge_btn.setEnabled(has_1 and has_2)
 
-        # Build rows
-        for field in all_fields:
-            in_1 = field in stats1
-            in_2 = field in stats2
-            rec, reason = merger.recommend(field, stats1.get(field), stats2.get(field))
-            row = FieldRow(field, in_1, in_2, rec, reason)
-            # Alternate row background
-            if len(self._field_rows) % 2 == 0:
-                row.setStyleSheet("background: white;")
-            self._field_rows.append(row)
-            self.field_layout.insertWidget(self.field_layout.count() - 1, row)
-
-        # Suggested filename
-        try:
-            if self.panel1.file_type == "pwx":
-                _, start_local, _ = self.panel1.meta
-                self.filename_edit.setText(f"merged_{start_local.strftime('%Y-%m-%d_%H%M')}")
-            else:
-                self.filename_edit.setText(f"merged_{start1.strftime('%Y-%m-%d_%H%M')}")
-        except Exception:
-            self.filename_edit.setText("merged_workout")
-
-        self._show_fields()
-        self.merge_btn.setEnabled(True)
-
-        # Store overlap data for merge step
-        self._fit_overlap  = fit_overlap
-        self._pwx_overlap  = pwx_overlap
-        self._start1_utc   = start1
-
-    def _show_fields(self):
-        self.field_area_label.show()
-        self.field_header.show()
-        self.scroll.show()
-        self.scroll.setMaximumHeight(min(300, 44 * len(self._field_rows) + 8))
-
-    def _hide_fields(self):
-        self.field_area_label.hide()
-        self.field_header.hide()
-        self.scroll.hide()
-        self.merge_btn.setEnabled(False)
-        self._field_rows.clear()
+        # Suggest a filename from the first file's start time
+        if not self.filename_edit.text():
+            try:
+                if self.panel1.file_type == "pwx":
+                    _, start_local, _ = self.panel1.meta
+                    self._set_suggested_name(
+                        f"merged_{start_local.strftime('%Y-%m-%d_%H%M')}"
+                    )
+                else:
+                    self._set_suggested_name(
+                        f"merged_{start1.strftime('%Y-%m-%d_%H%M')}"
+                    )
+            except Exception:
+                pass
 
     # ------------------------------------------------------------------
     # Merge
     # ------------------------------------------------------------------
 
     def _merge(self):
-        # Collect field choices
-        choices: dict[str, str] = {}
-        for row in self._field_rows:
-            src = row.source()
-            if src is not None:
-                choices[row.field] = src
-
+        choices = self.field_table.choices()
         if not choices:
             QMessageBox.warning(self, "Nothing to merge", "All fields are excluded.")
             return
 
-        # Output path
-        stem = self.filename_edit.text().strip() or "merged_workout"
-        # Sanitize: strip unsafe characters
-        import re
-        stem = re.sub(r'[^\w\-. ]', '', stem).strip() or "merged_workout"
-
+        stem = re.sub(r'[^\w\-. ]', '', self.filename_edit.text().strip()) or "merged_workout"
         save_path, _ = QFileDialog.getSaveFileName(
             self, "Save merged FIT file", f"{stem}.fit", "FIT files (*.fit)"
         )
@@ -500,34 +633,23 @@ class MainWindow(QMainWindow):
 
         try:
             merged = merger.build_merged_samples(
-                self._pwx_overlap,
-                self._fit_overlap,
-                self._start1_utc,
-                choices,
+                self._pwx_overlap, self._fit_overlap, self._start1_utc, choices
             )
             fit_core.write(merged, self._start1_utc, Path(save_path))
-            QMessageBox.information(self, "Done", f"Saved to:\n{save_path}")
+            QMessageBox.information(self, "Saved", f"Merged file saved to:\n{save_path}")
         except Exception as e:
             QMessageBox.critical(self, "Merge failed", str(e))
 
 
 # ---------------------------------------------------------------------------
-# Helpers for overlap with two arbitrary files
+# Separator helper
 # ---------------------------------------------------------------------------
 
-def _samples_to_fit_records(samples: list, start_utc) -> list:
-    """Convert (offset, {pwx_field}) samples back to FIT-record-style dicts."""
-    from app.core.fit import PWX_TO_FIT
-    records = []
-    for offset, fields in samples:
-        from datetime import timedelta
-        ts = start_utc + timedelta(seconds=offset)
-        rec = {"timestamp": ts}
-        for pwx_field, val in fields.items():
-            fit_field = PWX_TO_FIT.get(pwx_field, pwx_field)
-            rec[fit_field] = val
-        records.append(rec)
-    return records
+def _hline() -> QFrame:
+    line = QFrame()
+    line.setFrameShape(QFrame.Shape.HLine)
+    line.setStyleSheet("color: #D1D1D6;")
+    return line
 
 
 # ---------------------------------------------------------------------------
@@ -537,7 +659,8 @@ def _samples_to_fit_records(samples: list, start_utc) -> list:
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName("fitfilemaker")
-    app.setStyle("macOS")
+    app.setStyle("Fusion")
+    app.setPalette(_build_palette())
 
     window = MainWindow()
     window.show()
