@@ -12,11 +12,23 @@ Third-party dependencies — see NOTICE file:
     fit-tool  BSD-3       FIT file writing
 """
 
+import os
 import re
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+
+# Resolve Qt platform plugin path before QApplication is created.
+# PySide6 ships its own Qt libs inside the package; on macOS the venv
+# doesn't expose them to Qt's default search path.
+try:
+    import PySide6 as _ps6
+    _plugin_path = Path(_ps6.__file__).parent / "Qt" / "plugins" / "platforms"
+    if _plugin_path.exists():
+        os.environ.setdefault("QT_QPA_PLATFORM_PLUGIN_PATH", str(_plugin_path))
+except Exception:
+    pass
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont, QPalette
