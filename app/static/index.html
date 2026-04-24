@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>fitfilemaker</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f5f5f5;
+      color: #222;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: #1a1a2e;
+      color: #fff;
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    header h1 { font-size: 1.4rem; font-weight: 600; letter-spacing: .02em; }
+    header span { font-size: .85rem; color: #aaa; }
+
+    main { flex: 1; max-width: 860px; width: 100%; margin: 2rem auto; padding: 0 1rem; }
+
+    /* Cards */
+    .card {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.1);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 1rem; color: #444; text-transform: uppercase; letter-spacing: .05em; }
+
+    /* Upload zone */
+    .upload-row { display: flex; gap: 1rem; flex-wrap: wrap; }
+    .drop-zone {
+      flex: 1; min-width: 200px;
+      border: 2px dashed #ccc;
+      border-radius: 6px;
+      padding: 1.5rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      position: relative;
+    }
+    .drop-zone:hover, .drop-zone.over { border-color: #4f7cff; background: #f0f4ff; }
+    .drop-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .drop-zone .label { font-size: .85rem; color: #888; margin-top: .4rem; }
+    .drop-zone .filename { font-size: .85rem; color: #4f7cff; margin-top: .4rem; font-weight: 500; word-break: break-all; }
+
+    /* Button */
+    button {
+      background: #4f7cff;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      padding: .6rem 1.4rem;
+      font-size: .95rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    button:hover:not(:disabled) { background: #3a65e0; }
+    button:disabled { background: #aaa; cursor: not-allowed; }
+    button.secondary { background: #eee; color: #333; }
+    button.secondary:hover:not(:disabled) { background: #ddd; }
+
+    /* Field table */
+    table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+    th { text-align: left; padding: .5rem .75rem; background: #f0f0f0; font-weight: 600; color: #555; font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+    td { padding: .55rem .75rem; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #fafafa; }
+
+    .source-group { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; }
+    .source-group label { display: flex; align-items: center; gap: .3rem; cursor: pointer; font-size: .88rem; }
+    .source-group input[type=radio] { accent-color: #4f7cff; }
+
+    .badge {
+      display: inline-block;
+      font-size: .72rem;
+      padding: .15rem .45rem;
+      border-radius: 3px;
+      font-weight: 500;
+    }
+    .badge-rec  { background: #e6f0ff; color: #2d5fd4; }
+    .badge-warn { background: #fff4e5; color: #a05c00; }
+    .badge-only { background: #eee;    color: #666; }
+
+    /* Output row */
+    .output-row { display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap; }
+    .field-group { display: flex; flex-direction: column; gap: .3rem; }
+    .field-group label { font-size: .82rem; color: #666; font-weight: 500; }
+    .field-group input[type=text] {
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: .45rem .7rem;
+      font-size: .9rem;
+      width: 260px;
+    }
+    .field-group input:focus { outline: none; border-color: #4f7cff; }
+    select {
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: .45rem .7rem;
+      font-size: .9rem;
+      background: #fff;
+    }
+
+    /* Status / error */
+    #status {
+      font-size: .88rem;
+      padding: .5rem .75rem;
+      border-radius: 4px;
+      display: none;
+      margin-bottom: 1rem;
+    }
+    #status.info    { background: #e6f0ff; color: #1a3a8a; display: block; }
+    #status.success { background: #e6f7ee; color: #1a6a3a; display: block; }
+    #status.error   { background: #fdecea; color: #8a1a1a; display: block; }
+
+    /* Stats tooltip helper */
+    .stats { font-size: .78rem; color: #999; }
+
+    footer {
+      text-align: center;
+      padding: 1.2rem;
+      font-size: .8rem;
+      color: #aaa;
+    }
+    footer a { color: #4f7cff; text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    /* Hidden */
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>fitfilemaker</h1>
+  <span>Merge &amp; convert workout files</span>
+</header>
+
+<main>
+
+  <div id="status"></div>
+
+  <!-- Step 1: Upload -->
+  <div class="card" id="step-upload">
+    <h2>Step 1 — Upload Files</h2>
+    <div class="upload-row">
+      <div class="drop-zone" id="zone-a">
+        <input type="file" id="file-a" accept=".pwx,.fit" />
+        <div>📂 Drop or click</div>
+        <div class="label">PWX or FIT file</div>
+        <div class="filename" id="name-a"></div>
+      </div>
+      <div class="drop-zone" id="zone-b">
+        <input type="file" id="file-b" accept=".pwx,.fit" />
+        <div>📂 Drop or click</div>
+        <div class="label">PWX or FIT file</div>
+        <div class="filename" id="name-b"></div>
+      </div>
+    </div>
+    <div style="margin-top:1rem;">
+      <button id="btn-analyze" disabled>Analyze Files →</button>
+    </div>
+  </div>
+
+  <!-- Step 2: Configure -->
+  <div class="card hidden" id="step-configure">
+    <h2>Step 2 — Choose Fields</h2>
+    <p style="font-size:.85rem;color:#777;margin-bottom:1rem;">
+      <strong>A</strong> = PWX file &nbsp;|&nbsp; <strong>B</strong> = FIT file &nbsp;|&nbsp;
+      <strong>Avg</strong> = sample-by-sample average of both.
+      Recommended source is pre-selected based on device type and data quality.
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>Field</th>
+          <th>Source</th>
+          <th>Info</th>
+        </tr>
+      </thead>
+      <tbody id="fields-body"></tbody>
+    </table>
+
+    <div style="margin-top:1.5rem;">
+      <h2 style="margin-bottom:1rem;">Output</h2>
+      <div class="output-row">
+        <div class="field-group">
+          <label for="out-filename">Filename</label>
+          <input type="text" id="out-filename" placeholder="merged_2026-04-02_0731" />
+        </div>
+        <div class="field-group">
+          <label for="out-format">Format</label>
+          <select id="out-format">
+            <option value="pwx">PWX (TrainingPeaks)</option>
+            <option value="fit">FIT (Garmin)</option>
+          </select>
+        </div>
+        <div style="padding-bottom:.05rem;">
+          <button id="btn-merge">Download Merged File ↓</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  <a href="/licenses" target="_blank">Open-source licenses</a>
+</footer>
+
+<script>
+  // ---------------------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------------------
+  let fileA = null, fileB = null;
+  let analyzeResult = null;
+
+  // ---------------------------------------------------------------------------
+  // Upload zone wiring
+  // ---------------------------------------------------------------------------
+  function wireZone(zoneId, inputId, nameId, slot) {
+    const zone  = document.getElementById(zoneId);
+    const input = document.getElementById(inputId);
+    const nameEl = document.getElementById(nameId);
+
+    input.addEventListener('change', () => {
+      if (input.files[0]) setFile(slot, input.files[0], nameEl);
+    });
+
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('over'); });
+    zone.addEventListener('dragleave', ()  => zone.classList.remove('over'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('over');
+      const f = e.dataTransfer.files[0];
+      if (f) { input.files = e.dataTransfer.files; setFile(slot, f, nameEl); }
+    });
+  }
+
+  function setFile(slot, file, nameEl) {
+    if (slot === 'a') fileA = file; else fileB = file;
+    nameEl.textContent = file.name;
+    document.getElementById('btn-analyze').disabled = !(fileA && fileB);
+    // Reset step 2 if files change
+    if (analyzeResult) {
+      analyzeResult = null;
+      document.getElementById('step-configure').classList.add('hidden');
+      setStatus('');
+    }
+  }
+
+  wireZone('zone-a', 'file-a', 'name-a', 'a');
+  wireZone('zone-b', 'file-b', 'name-b', 'b');
+
+  // ---------------------------------------------------------------------------
+  // Status helper
+  // ---------------------------------------------------------------------------
+  function setStatus(msg, type = '') {
+    const el = document.getElementById('status');
+    el.textContent = msg;
+    el.className = type || '';
+    if (!type) el.style.display = 'none';
+  }
+
+  // ---------------------------------------------------------------------------
+  // Analyze
+  // ---------------------------------------------------------------------------
+  document.getElementById('btn-analyze').addEventListener('click', async () => {
+    setStatus('Analyzing files…', 'info');
+    document.getElementById('btn-analyze').disabled = true;
+
+    const form = new FormData();
+    form.append('file_a', fileA);
+    form.append('file_b', fileB);
+
+    try {
+      const res = await fetch('/api/v1/analyze', { method: 'POST', body: form });
+      const data = await res.json();
+      if (!res.ok) {
+        setStatus(data.detail || 'Analysis failed.', 'error');
+        return;
+      }
+      analyzeResult = data;
+      renderFields(data);
+      document.getElementById('out-filename').value = data.suggested_filename;
+      document.getElementById('step-configure').classList.remove('hidden');
+      setStatus(
+        `Found ${data.overlap_seconds}s of overlapping data across ${Object.keys(data.fields).length} fields.`,
+        'success'
+      );
+    } catch (e) {
+      setStatus('Network error: ' + e.message, 'error');
+    } finally {
+      document.getElementById('btn-analyze').disabled = false;
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // Render field table
+  // ---------------------------------------------------------------------------
+  const FIELD_LABELS = { hr: 'Heart Rate', pwr: 'Power', cad: 'Cadence', spd: 'Speed', dist: 'Distance', alt: 'Altitude' };
+
+  function renderFields(data) {
+    const tbody = document.getElementById('fields-body');
+    tbody.innerHTML = '';
+
+    for (const [field, info] of Object.entries(data.fields)) {
+      const label = FIELD_LABELS[field] || field;
+      const tr = document.createElement('tr');
+
+      // Field name
+      const tdName = document.createElement('td');
+      tdName.textContent = label;
+      tr.appendChild(tdName);
+
+      // Source selector
+      const tdSource = document.createElement('td');
+      const group = document.createElement('div');
+      group.className = 'source-group';
+
+      const options = [];
+      if (info.in_a) options.push({ val: 'a', lbl: 'A (PWX)' });
+      if (info.in_a && info.in_b) options.push({ val: 'avg', lbl: 'Avg' });
+      if (info.in_b) options.push({ val: 'b', lbl: 'B (FIT)' });
+
+      options.forEach(opt => {
+        const lbl = document.createElement('label');
+        const radio = document.createElement('input');
+        radio.type  = 'radio';
+        radio.name  = `field_${field}`;
+        radio.value = opt.val;
+        if (opt.val === info.recommended) radio.checked = true;
+        lbl.appendChild(radio);
+        lbl.appendChild(document.createTextNode(' ' + opt.lbl));
+        group.appendChild(lbl);
+      });
+
+      tdSource.appendChild(group);
+      tr.appendChild(tdSource);
+
+      // Info / reason
+      const tdInfo = document.createElement('td');
+      const badge = document.createElement('span');
+
+      if (!info.in_a || !info.in_b) {
+        badge.className = 'badge badge-only';
+        badge.textContent = info.in_a ? 'PWX only' : 'FIT only';
+      } else {
+        badge.className = 'badge badge-rec';
+        badge.textContent = '★ ' + info.reason;
+      }
+      tdInfo.appendChild(badge);
+
+      // Stats summary
+      if (info.stats_a || info.stats_b) {
+        const statsEl = document.createElement('div');
+        statsEl.className = 'stats';
+        const parts = [];
+        if (info.stats_a) parts.push(`A: ${info.stats_a.sample_avg} avg`);
+        if (info.stats_b) parts.push(`B: ${info.stats_b.sample_avg} avg`);
+        statsEl.textContent = parts.join(' · ');
+        tdInfo.appendChild(statsEl);
+      }
+
+      tr.appendChild(tdInfo);
+      tbody.appendChild(tr);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Merge + download
+  // ---------------------------------------------------------------------------
+  document.getElementById('btn-merge').addEventListener('click', async () => {
+    if (!analyzeResult) return;
+
+    // Collect choices
+    const choices = {};
+    for (const field of Object.keys(analyzeResult.fields)) {
+      const selected = document.querySelector(`input[name="field_${field}"]:checked`);
+      if (selected) choices[field] = selected.value;
+    }
+
+    const filename = document.getElementById('out-filename').value.trim() || 'merged';
+    const format   = document.getElementById('out-format').value;
+
+    setStatus('Merging…', 'info');
+    document.getElementById('btn-merge').disabled = true;
+
+    const form = new FormData();
+    form.append('file_a', fileA);
+    form.append('file_b', fileB);
+    form.append('choices', JSON.stringify(choices));
+    form.append('output_format', format);
+    form.append('filename', filename);
+
+    try {
+      const res = await fetch('/api/v1/merge', { method: 'POST', body: form });
+      if (!res.ok) {
+        const data = await res.json();
+        setStatus(data.detail || 'Merge failed.', 'error');
+        return;
+      }
+
+      // Trigger browser download
+      const blob  = await res.blob();
+      const url   = URL.createObjectURL(blob);
+      const a     = document.createElement('a');
+      a.href      = url;
+      a.download  = `${filename}.${format}`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      setStatus('File downloaded.', 'success');
+    } catch (e) {
+      setStatus('Network error: ' + e.message, 'error');
+    } finally {
+      document.getElementById('btn-merge').disabled = false;
+    }
+  });
+</script>
+
+</body>
+</html>
