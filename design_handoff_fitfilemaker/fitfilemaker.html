@@ -1,0 +1,1395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>fitfilemaker — UI Redesign</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      min-height: 100vh;
+      display: grid;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+      place-items: center;
+      padding: 32px 16px;
+      transition: background 0.35s;
+    }
+
+    :root {
+      --font: 'DM Sans', system-ui, sans-serif;
+      --mono: 'DM Mono', 'Courier New', monospace;
+      --r-sm: 6px; --r: 10px; --r-lg: 16px;
+    }
+
+    /* ── Slate theme ── */
+    body.theme-slate {
+      --page-bg: oklch(0.87 0.022 248);
+      --bg: oklch(0.965 0.007 248);
+      --surface: oklch(0.995 0.002 248);
+      --surface2: oklch(0.945 0.009 248);
+      --surface3: oklch(0.915 0.011 248);
+      --accent: oklch(0.52 0.2 262);
+      --accent-dim: oklch(0.935 0.042 262);
+      --accent-fg: #fff;
+      --text: oklch(0.17 0.016 248);
+      --text2: oklch(0.47 0.013 248);
+      --text3: oklch(0.64 0.009 248);
+      --border: oklch(0.89 0.009 248);
+      --border2: oklch(0.81 0.013 248);
+      --good: oklch(0.50 0.155 150);
+      --good-bg: oklch(0.945 0.048 150);
+      --warn: oklch(0.58 0.148 70);
+      --warn-bg: oklch(0.955 0.048 70);
+      --bad: oklch(0.56 0.045 248);
+      --bad-bg: oklch(0.935 0.018 248);
+      --sh: 0 2px 8px oklch(0.2 0.015 248 / 0.07), 0 1px 2px oklch(0.2 0.015 248 / 0.05);
+      --sh-lg: 0 24px 64px oklch(0.17 0.016 248 / 0.22), 0 4px 16px oklch(0.17 0.016 248 / 0.1);
+    }
+    /* ── Warm theme ── */
+    body.theme-warm {
+      --page-bg: oklch(0.87 0.028 78);
+      --bg: oklch(0.965 0.016 78);
+      --surface: oklch(0.995 0.005 78);
+      --surface2: oklch(0.945 0.016 78);
+      --surface3: oklch(0.915 0.019 78);
+      --accent: oklch(0.56 0.168 48);
+      --accent-dim: oklch(0.95 0.058 48);
+      --accent-fg: #fff;
+      --text: oklch(0.17 0.022 55);
+      --text2: oklch(0.47 0.016 55);
+      --text3: oklch(0.64 0.01 55);
+      --border: oklch(0.89 0.013 78);
+      --border2: oklch(0.81 0.019 78);
+      --good: oklch(0.50 0.155 150);
+      --good-bg: oklch(0.945 0.048 150);
+      --warn: oklch(0.58 0.148 60);
+      --warn-bg: oklch(0.955 0.048 60);
+      --bad: oklch(0.56 0.045 78);
+      --bad-bg: oklch(0.935 0.018 78);
+      --sh: 0 2px 8px oklch(0.2 0.022 55 / 0.07), 0 1px 2px oklch(0.2 0.022 55 / 0.05);
+      --sh-lg: 0 24px 64px oklch(0.17 0.022 55 / 0.22), 0 4px 16px oklch(0.17 0.022 55 / 0.1);
+    }
+    /* ── Sage theme ── */
+    body.theme-sage {
+      --page-bg: oklch(0.86 0.023 152);
+      --bg: oklch(0.965 0.011 152);
+      --surface: oklch(0.995 0.003 152);
+      --surface2: oklch(0.945 0.012 152);
+      --surface3: oklch(0.915 0.014 152);
+      --accent: oklch(0.46 0.165 162);
+      --accent-dim: oklch(0.938 0.05 162);
+      --accent-fg: #fff;
+      --text: oklch(0.17 0.019 152);
+      --text2: oklch(0.47 0.013 152);
+      --text3: oklch(0.64 0.008 152);
+      --border: oklch(0.89 0.01 152);
+      --border2: oklch(0.81 0.014 152);
+      --good: oklch(0.46 0.165 162);
+      --good-bg: oklch(0.938 0.05 162);
+      --warn: oklch(0.58 0.148 70);
+      --warn-bg: oklch(0.955 0.048 70);
+      --bad: oklch(0.56 0.045 152);
+      --bad-bg: oklch(0.935 0.018 152);
+      --sh: 0 2px 8px oklch(0.2 0.019 152 / 0.07), 0 1px 2px oklch(0.2 0.019 152 / 0.05);
+      --sh-lg: 0 24px 64px oklch(0.17 0.019 152 / 0.22), 0 4px 16px oklch(0.17 0.019 152 / 0.1);
+    }
+
+    /* ── Dark mode ── */
+    @media (prefers-color-scheme: dark) {
+      body.theme-slate {
+        --page-bg: oklch(0.11 0.013 248);
+        --bg: oklch(0.165 0.013 248);
+        --surface: oklch(0.205 0.013 248);
+        --surface2: oklch(0.235 0.013 248);
+        --surface3: oklch(0.265 0.013 248);
+        --accent: oklch(0.67 0.2 262);
+        --accent-dim: oklch(0.255 0.075 262);
+        --accent-fg: oklch(0.11 0.02 262);
+        --text: oklch(0.935 0.005 248);
+        --text2: oklch(0.68 0.008 248);
+        --text3: oklch(0.52 0.006 248);
+        --border: oklch(0.285 0.012 248);
+        --border2: oklch(0.365 0.012 248);
+        --good: oklch(0.73 0.14 150); --good-bg: oklch(0.225 0.055 150);
+        --warn: oklch(0.78 0.13 70); --warn-bg: oklch(0.225 0.048 70);
+        --bad: oklch(0.56 0.04 248); --bad-bg: oklch(0.225 0.02 248);
+        --sh: 0 2px 8px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.25);
+        --sh-lg: 0 24px 64px rgba(0,0,0,0.55), 0 4px 16px rgba(0,0,0,0.35);
+      }
+      body.theme-warm {
+        --page-bg: oklch(0.11 0.018 70);
+        --bg: oklch(0.165 0.018 70);
+        --surface: oklch(0.205 0.018 70);
+        --surface2: oklch(0.235 0.018 70);
+        --surface3: oklch(0.265 0.018 70);
+        --accent: oklch(0.73 0.16 50);
+        --accent-dim: oklch(0.255 0.068 50);
+        --accent-fg: oklch(0.11 0.02 50);
+        --text: oklch(0.935 0.006 70);
+        --text2: oklch(0.68 0.01 70);
+        --text3: oklch(0.52 0.007 70);
+        --border: oklch(0.285 0.015 70);
+        --border2: oklch(0.365 0.015 70);
+        --good: oklch(0.73 0.14 150); --good-bg: oklch(0.225 0.055 150);
+        --warn: oklch(0.78 0.13 60); --warn-bg: oklch(0.225 0.048 60);
+        --bad: oklch(0.56 0.04 70); --bad-bg: oklch(0.225 0.02 70);
+        --sh: 0 2px 8px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.25);
+        --sh-lg: 0 24px 64px rgba(0,0,0,0.55), 0 4px 16px rgba(0,0,0,0.35);
+      }
+      body.theme-sage {
+        --page-bg: oklch(0.11 0.016 152);
+        --bg: oklch(0.165 0.016 152);
+        --surface: oklch(0.205 0.016 152);
+        --surface2: oklch(0.235 0.016 152);
+        --surface3: oklch(0.265 0.016 152);
+        --accent: oklch(0.67 0.165 162);
+        --accent-dim: oklch(0.245 0.065 162);
+        --accent-fg: oklch(0.11 0.02 162);
+        --text: oklch(0.935 0.005 152);
+        --text2: oklch(0.68 0.009 152);
+        --text3: oklch(0.52 0.006 152);
+        --border: oklch(0.285 0.013 152);
+        --border2: oklch(0.365 0.013 152);
+        --good: oklch(0.67 0.165 162); --good-bg: oklch(0.235 0.06 162);
+        --warn: oklch(0.78 0.13 70); --warn-bg: oklch(0.225 0.048 70);
+        --bad: oklch(0.56 0.04 152); --bad-bg: oklch(0.225 0.02 152);
+        --sh: 0 2px 8px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.25);
+        --sh-lg: 0 24px 64px rgba(0,0,0,0.55), 0 4px 16px rgba(0,0,0,0.35);
+      }
+    }
+
+    button { font-family: inherit; cursor: default; }
+    input, textarea { font-family: inherit; }
+    p { text-wrap: pretty; }
+    code { font-family: var(--mono, monospace); }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 99px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+  </style>
+</head>
+<body class="theme-slate">
+  <div id="root"></div>
+  <script type="text/babel" src="macos-window.jsx"></script>
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+
+  <!-- ═══════════════════════════════════════════════════════ DATA -->
+  <script type="text/babel" id="ff-data">
+    window.FILE_COLORS = [
+      'var(--accent)',
+      'oklch(0.62 0.155 32)',
+      'oklch(0.55 0.165 295)',
+    ];
+
+    window.ALL_MOCK_FILES = [
+      {
+        id: 'f1', name: 'cycling_class_04-27.pwx', format: 'PWX',
+        device: 'Wahoo KICKR', deviceType: 'trainer',
+        duration: '58:34', startTime: '07:02 AM', size: '284 KB',
+        fields: {
+          heartRate: { quality: 'none',  label: 'No data' },
+          power:     { quality: 'good',  label: 'avg 195 W',    sub: 'Peak 412 W' },
+          cadence:   { quality: 'good',  label: 'avg 88 rpm' },
+          speed:     { quality: 'good',  label: 'avg 28.4 km/h' },
+          distance:  { quality: 'good',  label: '27.6 km total' },
+          altitude:  { quality: 'none',  label: 'No data' },
+        }
+      },
+      {
+        id: 'f2', name: 'garmin_2024-04-27.fit', format: 'FIT',
+        device: 'Garmin Forerunner 265', deviceType: 'watch',
+        duration: '1:01:15', startTime: '07:00 AM', size: '1.2 MB',
+        fields: {
+          heartRate: { quality: 'good',  label: 'avg 142 bpm',  sub: 'Range 98–178' },
+          power:     { quality: 'bad',   label: 'All zeros',    sub: 'No power meter' },
+          cadence:   { quality: 'fair',  label: 'avg 85 rpm',   sub: 'Some gaps' },
+          speed:     { quality: 'fair',  label: 'avg 27.9 km/h',sub: 'GPS-derived' },
+          distance:  { quality: 'fair',  label: '28.1 km total' },
+          altitude:  { quality: 'bad',   label: 'Flat ~42 m',   sub: 'Indoor — no variance' },
+        }
+      },
+    ];
+
+    window.THIRD_FILE = {
+      id: 'f3', name: 'zwift_session_04-27.fit', format: 'FIT',
+      device: 'Zwift (Virtual)', deviceType: 'virtual',
+      duration: '58:50', startTime: '07:01 AM', size: '890 KB',
+      fields: {
+        heartRate: { quality: 'none', label: 'No data' },
+        power:     { quality: 'fair', label: 'avg 188 W',     sub: 'Estimated watts' },
+        cadence:   { quality: 'fair', label: 'avg 87 rpm' },
+        speed:     { quality: 'fair', label: 'avg 29.1 km/h', sub: 'Virtual speed' },
+        distance:  { quality: 'fair', label: '28.3 km total', sub: 'Virtual terrain' },
+        altitude:  { quality: 'fair', label: '122 m gain',    sub: 'Virtual terrain' },
+      }
+    };
+
+    window.FIELD_DEFS = [
+      { id: 'heartRate', label: 'Heart Rate', unit: 'bpm',  icon: '♥' },
+      { id: 'power',     label: 'Power',      unit: 'W',    icon: '⚡' },
+      { id: 'cadence',   label: 'Cadence',    unit: 'rpm',  icon: '↺' },
+      { id: 'speed',     label: 'Speed',      unit: 'km/h', icon: '→' },
+      { id: 'distance',  label: 'Distance',   unit: 'km',   icon: '◎' },
+      { id: 'altitude',  label: 'Altitude',   unit: 'm',    icon: '△' },
+    ];
+
+    // ── Waveform data (generated once) ──────────────────────────
+    window.WAVEFORM = (function() {
+      const n = 400, power = [], hr = [];
+      for (let i = 0; i < n; i++) {
+        const t = i / n;
+        let p;
+        if (t < 0.13) {
+          p = 80 + (t / 0.13) * 110 + Math.sin(i * 0.9) * 14;
+        } else if (t > 0.86) {
+          p = 165 - ((t - 0.86) / 0.14) * 100 + Math.sin(i * 0.9) * 10;
+        } else {
+          const it = ((t - 0.13) / 0.73) * 7;
+          const phase = it % 1;
+          if (phase < 0.65) {
+            p = 280 + Math.sin(phase * Math.PI * 5) * 40 + Math.sin(i * 2.1) * 20;
+          } else {
+            p = 88 + Math.sin(i * 0.9) * 18;
+          }
+        }
+        power.push(Math.max(8, Math.min(420, p)));
+        const prev = hr.length > 0 ? hr[hr.length - 1] : 108;
+        hr.push(Math.max(75, Math.min(182, prev + (85 + power[i] / 420 * 92 - prev) * 0.055 + (Math.random() - 0.5) * 2.5)));
+      }
+      return { power, hr, n };
+    })();
+
+    window.RECS = {
+      heartRate: { src: 'f2', note: 'Garmin records heart rate continuously. The PWX file has no HR data.' },
+      power:     { src: 'f1', note: 'Wahoo KICKR provides calibrated power from the trainer. Garmin Forerunner shows all zeros — no power meter attached.' },
+      cadence:   { src: 'f1', note: 'Trainer cadence is more accurate and consistent than optical cadence from the watch.' },
+      speed:     { src: 'f1', note: 'Trainer virtual speed aligns with the structured workout. GPS-derived speed from the Garmin may vary.' },
+      distance:  { src: 'f1', note: 'Trainer distance matches the workout intervals and is consistent with power output.' },
+      altitude:  { src: null, note: 'Both files show flat or meaningless altitude data for an indoor session — recommended to exclude.' },
+    };
+  </script>
+
+  <!-- ═══════════════════════════════════════════════════════ PANELS -->
+  <script type="text/babel" id="ff-panels">
+    const { useState, useRef, useCallback, useEffect } = React;
+
+    /* ── tiny atoms ─────────────────────────────────────────── */
+
+    function QBadge({ quality }) {
+      const map = {
+        good: { label: 'Good', c: 'var(--good)', bg: 'var(--good-bg)' },
+        fair: { label: 'Fair', c: 'var(--warn)', bg: 'var(--warn-bg)' },
+        bad:  { label: 'Poor', c: 'var(--bad)',  bg: 'var(--bad-bg)'  },
+        none: { label: 'None', c: 'var(--text3)',bg: 'var(--surface3)' },
+      };
+      const q = map[quality] || map.none;
+      return (
+        <span style={{
+          display:'inline-block', padding:'1px 7px', borderRadius:99,
+          fontSize:10, fontWeight:700, letterSpacing:'0.04em',
+          color:q.c, background:q.bg,
+        }}>{q.label}</span>
+      );
+    }
+
+    function FmtBadge({ format }) {
+      return (
+        <span style={{
+          display:'inline-block', padding:'2px 7px', borderRadius:5,
+          fontSize:10, fontWeight:700, letterSpacing:'0.07em',
+          color:'var(--accent)', background:'var(--accent-dim)',
+          fontFamily:'var(--mono)',
+        }}>{format}</span>
+      );
+    }
+
+    /* ── FILES step ─────────────────────────────────────────── */
+
+    function FilesPanel({ files, setFiles }) {
+      const [dragOver, setDragOver] = useState(false);
+      const canAddThird = !files.find(f => f.id === 'f3');
+
+      return (
+        <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+          <div>
+            <h2 style={{ fontSize:17, fontWeight:600, color:'var(--text)', marginBottom:4 }}>Load workout files</h2>
+            <p style={{ fontSize:13, color:'var(--text2)', lineHeight:1.55 }}>
+              Add two or more workout files. Supports <code style={{fontFamily:'var(--mono)',fontSize:12}}>.fit</code> and <code style={{fontFamily:'var(--mono)',fontSize:12}}>.pwx</code>.
+              Device context is detected automatically.
+            </p>
+          </div>
+
+          <div style={{ display:'flex', flexDirection:'column', gap:9 }}>
+            {files.map((f, i) => (
+              <FileCard key={f.id} file={f} index={i} onRemove={() => setFiles(files.filter(x => x.id !== f.id))} />
+            ))}
+          </div>
+
+          {/* drop zone */}
+          <div
+            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={e => { e.preventDefault(); setDragOver(false); }}
+            onClick={() => canAddThird && setFiles([...files, THIRD_FILE])}
+            style={{
+              border:`2px dashed ${dragOver ? 'var(--accent)' : 'var(--border2)'}`,
+              borderRadius:'var(--r)',
+              padding:'18px 20px',
+              display:'flex', alignItems:'center', gap:14,
+              cursor: canAddThird ? 'pointer' : 'default',
+              background: dragOver ? 'var(--accent-dim)' : 'transparent',
+              opacity: canAddThird ? 1 : 0.5,
+              transition:'all 0.15s',
+            }}
+          >
+            <div style={{
+              width:34, height:34, borderRadius:'var(--r-sm)',
+              background:'var(--accent-dim)', color:'var(--accent)',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              fontSize:22, fontWeight:300, lineHeight:1, flexShrink:0,
+            }}>+</div>
+            <div>
+              <div style={{ fontSize:13, fontWeight:500, color:'var(--text)' }}>
+                {canAddThird ? 'Add another file' : 'All example files loaded'}
+              </div>
+              <div style={{ fontSize:12, color:'var(--text3)', marginTop:1 }}>
+                Drop a .fit or .pwx file, or click to browse
+              </div>
+            </div>
+          </div>
+
+          {files.length >= 2 && (
+            <div style={{
+              padding:'11px 15px', borderRadius:'var(--r-sm)',
+              background:'var(--good-bg)', color:'var(--good)',
+              fontSize:13, display:'flex', alignItems:'center', gap:8,
+            }}>
+              <span style={{ fontWeight:700 }}>✓</span>
+              <span>
+                <strong>{files.length} files loaded.</strong>{' '}
+                Device context detected — field recommendations are ready on the next step.
+              </span>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function FileCard({ file, index, onRemove }) {
+      const [open, setOpen] = useState(index < 2);
+      const color = FILE_COLORS[index % FILE_COLORS.length];
+
+      return (
+        <div style={{
+          background:'var(--surface)', border:'1px solid var(--border)',
+          borderRadius:'var(--r)', overflow:'hidden', boxShadow:'var(--sh)',
+        }}>
+          <div
+            style={{ display:'flex', alignItems:'center', gap:10, padding:'11px 14px', cursor:'pointer' }}
+            onClick={() => setOpen(!open)}
+          >
+            <div style={{ width:3, height:38, borderRadius:2, background:color, flexShrink:0 }} />
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:2 }}>
+                <FmtBadge format={file.format} />
+                <span style={{
+                  fontFamily:'var(--mono)', fontSize:12, fontWeight:500, color:'var(--text)',
+                  overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+                }}>{file.name}</span>
+              </div>
+              <div style={{ fontSize:11, color:'var(--text3)' }}>
+                {file.device} · {file.duration} · started {file.startTime} · {file.size}
+              </div>
+            </div>
+            <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
+              <span style={{ fontSize:10, color:'var(--text3)' }}>{open ? '▲' : '▼'}</span>
+              <button
+                onClick={e => { e.stopPropagation(); onRemove(); }}
+                style={{
+                  background:'none', border:'none', cursor:'pointer',
+                  color:'var(--text3)', fontSize:17, lineHeight:1, padding:'1px 3px',
+                  borderRadius:3,
+                }}
+              >×</button>
+            </div>
+          </div>
+
+          {open && (
+            <div style={{
+              borderTop:'1px solid var(--border)', padding:'12px 14px',
+              background:'var(--surface2)', display:'flex', flexWrap:'wrap', gap:7,
+            }}>
+              {FIELD_DEFS.map(fd => {
+                const d = file.fields[fd.id];
+                return (
+                  <div key={fd.id} style={{
+                    padding:'7px 10px', background:'var(--surface)',
+                    border:'1px solid var(--border)', borderRadius:'var(--r-sm)',
+                    minWidth:110,
+                  }}>
+                    <div style={{ fontSize:10, color:'var(--text3)', marginBottom:3 }}>
+                      {fd.icon} {fd.label}
+                    </div>
+                    <div style={{ display:'flex', alignItems:'center', gap:5, flexWrap:'wrap' }}>
+                      <span style={{ fontSize:12, fontWeight:500, color:'var(--text)', fontFamily:'var(--mono)' }}>
+                        {d.label}
+                      </span>
+                      <QBadge quality={d.quality} />
+                    </div>
+                    {d.sub && <div style={{ fontSize:10, color:'var(--text3)', marginTop:2 }}>{d.sub}</div>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    /* ── FIELDS step ─────────────────────────────────────────── */
+
+    function FieldsPanel({ files, choices, setChoices }) {
+      const allRec = FIELD_DEFS.every(fd => choices[fd.id] === RECS[fd.id].src);
+      return (
+        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+          <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12 }}>
+            <div>
+              <h2 style={{ fontSize:17, fontWeight:600, color:'var(--text)', marginBottom:4 }}>Choose data sources</h2>
+              <p style={{ fontSize:13, color:'var(--text2)', lineHeight:1.55 }}>
+                Select which file supplies each field in the merged output.
+                <span style={{ color:'var(--accent)', fontWeight:500 }}> ★ Recommended</span> sources
+                are pre-selected based on device type and data quality.
+              </p>
+            </div>
+            {!allRec && (
+              <button
+                onClick={() => {
+                  const r = {};
+                  FIELD_DEFS.forEach(fd => { r[fd.id] = RECS[fd.id].src; });
+                  setChoices(r);
+                }}
+                style={{
+                  flexShrink:0, padding:'6px 12px', fontSize:11, fontWeight:600,
+                  background:'var(--surface2)', color:'var(--text2)',
+                  border:'1px solid var(--border2)', borderRadius:'var(--r-sm)',
+                  cursor:'pointer', whiteSpace:'nowrap',
+                }}
+              >Reset to recommended</button>
+            )}
+          </div>
+
+          <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+            {FIELD_DEFS.map(fd => (
+              <FieldRow key={fd.id} field={fd} files={files} choice={choices[fd.id]}
+                rec={RECS[fd.id]}
+                onChange={v => setChoices({ ...choices, [fd.id]: v })} />
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    function FieldRow({ field, files, choice, rec, onChange }) {
+      const [noteOpen, setNoteOpen] = useState(false);
+      const isOverridden = choice !== rec.src;
+
+      return (
+        <div style={{
+          background:'var(--surface)', border:'1px solid var(--border)',
+          borderRadius:'var(--r)', overflow:'hidden',
+          outline: isOverridden ? '1.5px solid var(--warn)' : 'none',
+          outlineOffset: -1,
+        }}>
+          <div style={{ display:'flex', alignItems:'stretch' }}>
+            {/* Field label */}
+            <div style={{
+              padding:'13px 14px', width:130, flexShrink:0,
+              borderRight:'1px solid var(--border)',
+              display:'flex', flexDirection:'column', justifyContent:'center',
+            }}>
+              <div style={{ display:'flex', alignItems:'center', gap:5 }}>
+                <span style={{ fontSize:14, color:'var(--text2)', lineHeight:1 }}>{field.icon}</span>
+                <span style={{ fontSize:13, fontWeight:600, color:'var(--text)' }}>{field.label}</span>
+              </div>
+              <div style={{ fontSize:10, color:'var(--text3)', marginTop:1, fontFamily:'var(--mono)' }}>{field.unit}</div>
+            </div>
+
+            {/* Source buttons */}
+            <div style={{ flex:1, display:'flex', overflowX:'auto' }}>
+              {files.map((file, i) => {
+                const d = file.fields[field.id];
+                const sel = choice === file.id;
+                const isRec = rec.src === file.id;
+                const disabled = d.quality === 'none';
+                return (
+                  <button
+                    key={file.id}
+                    disabled={disabled}
+                    onClick={() => !disabled && onChange(file.id)}
+                    style={{
+                      flex:'1 1 0', padding:'10px 12px',
+                      background: sel ? 'var(--accent-dim)' : 'transparent',
+                      border:'none', borderRight:'1px solid var(--border)',
+                      cursor: disabled ? 'default' : 'pointer',
+                      textAlign:'left', opacity: disabled ? 0.38 : 1,
+                      position:'relative',
+                    }}
+                  >
+                    {sel && (
+                      <div style={{
+                        position:'absolute', left:0, top:0, bottom:0, width:3,
+                        background:'var(--accent)', borderRadius:'0 2px 2px 0',
+                      }} />
+                    )}
+                    <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:3 }}>
+                      <span style={{
+                        fontSize:10, fontWeight:700, letterSpacing:'0.05em',
+                        color: sel ? 'var(--accent)' : 'var(--text3)',
+                        fontFamily:'var(--mono)',
+                      }}>File {i+1}</span>
+                      {isRec && (
+                        <span style={{
+                          fontSize:9, fontWeight:700, letterSpacing:'0.04em',
+                          color:'var(--accent)', background:'var(--accent-dim)',
+                          padding:'1px 5px', borderRadius:99,
+                        }}>★ REC</span>
+                      )}
+                    </div>
+                    <div style={{
+                      fontSize:12, fontWeight: sel ? 600 : 400,
+                      color: sel ? 'var(--text)' : 'var(--text2)',
+                      fontFamily:'var(--mono)', marginBottom:3,
+                    }}>{d.label}</div>
+                    <QBadge quality={d.quality} />
+                  </button>
+                );
+              })}
+
+              {/* Exclude */}
+              <button
+                onClick={() => onChange(null)}
+                style={{
+                  width:76, flexShrink:0, padding:'10px 8px',
+                  background: choice === null ? 'var(--bad-bg)' : 'transparent',
+                  border:'none', cursor:'pointer',
+                  display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:3,
+                  color: choice === null ? 'var(--bad)' : 'var(--text3)',
+                  fontSize:11, fontWeight: choice === null ? 600 : 400,
+                }}
+              >
+                <span style={{ fontSize:17, opacity:0.65 }}>⊘</span>
+                Exclude
+              </button>
+            </div>
+
+            {/* Note toggle */}
+            <button
+              onClick={() => setNoteOpen(!noteOpen)}
+              style={{
+                width:36, flexShrink:0,
+                background: noteOpen ? 'var(--accent-dim)' : 'none',
+                border:'none', borderLeft:'1px solid var(--border)',
+                cursor:'pointer',
+                color: noteOpen ? 'var(--accent)' : 'var(--text3)',
+                fontSize:13, fontWeight:600,
+                display:'flex', alignItems:'center', justifyContent:'center',
+              }}
+              title="Recommendation note"
+            >?</button>
+          </div>
+
+          {noteOpen && (
+            <div style={{
+              borderTop:'1px solid var(--border)',
+              padding:'10px 14px',
+              background:'var(--accent-dim)',
+              display:'flex', alignItems:'flex-start', gap:8,
+            }}>
+              <span style={{ fontSize:12, color:'var(--accent)', fontWeight:700, flexShrink:0, marginTop:1 }}>★</span>
+              <div style={{ fontSize:12, color:'var(--text2)', lineHeight:1.55 }}>
+                {rec.note}
+                {isOverridden && (
+                  <span style={{
+                    marginLeft:8, fontSize:10, fontWeight:700,
+                    color:'var(--warn)', background:'var(--warn-bg)',
+                    padding:'1px 6px', borderRadius:99,
+                  }}>Override active</span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    /* ── TRIM step (enhanced) ───────────────────────────────── */
+
+    const MAX_TRIM_SEC = 3514;
+    const fmtTime = s => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
+
+    function svgArea(data, w, h, maxVal) {
+      const pts = data.map((v, i) =>
+        `${i === 0 ? 'M' : 'L'}${((i / (data.length - 1)) * w).toFixed(1)},${(h - (v / maxVal) * h * 0.88).toFixed(1)}`
+      ).join(' ');
+      return `${pts} L${w},${h} L0,${h} Z`;
+    }
+
+    function svgLine(data, w, h, maxVal) {
+      return data.map((v, i) =>
+        `${i === 0 ? 'M' : 'L'}${((i / (data.length - 1)) * w).toFixed(1)},${(h - (v / maxVal) * h * 0.88).toFixed(1)}`
+      ).join(' ');
+    }
+
+    function TrimPanel({ trimStart, setTrimStart, trimEnd, setTrimEnd, cuts, setCuts }) {
+      const [drag, setDrag] = useState(null);
+      const graphRef = useRef(null);
+
+      const pctToSec = p => Math.round(p / 100 * MAX_TRIM_SEC);
+      const durSec   = pctToSec(trimEnd) - pctToSec(trimStart);
+      const cutSec   = cuts.reduce((a, c) => a + pctToSec(c.end - c.start), 0);
+
+      const getXPct = useCallback((e) => {
+        const r = graphRef.current?.getBoundingClientRect();
+        if (!r) return 0;
+        return Math.max(0, Math.min(100, (e.clientX - r.left) / r.width * 100));
+      }, []);
+
+      const onMouseDown = (e) => { e.preventDefault(); const p = getXPct(e); setDrag({ start: p, current: p }); };
+
+      const onMouseMove = useCallback((e) => {
+        if (!drag) return;
+        setDrag(d => ({ ...d, current: getXPct(e) }));
+      }, [drag, getXPct]);
+
+      const onMouseUp = useCallback(() => {
+        if (drag) {
+          const s = Math.min(drag.start, drag.current);
+          const en = Math.max(drag.start, drag.current);
+          if (en - s > 1.5) setCuts(c => [...c, { id: Date.now(), start: s, end: en }]);
+          setDrag(null);
+        }
+      }, [drag]);
+
+      useEffect(() => {
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup',   onMouseUp);
+        return () => {
+          window.removeEventListener('mousemove', onMouseMove);
+          window.removeEventListener('mouseup',   onMouseUp);
+        };
+      }, [onMouseMove, onMouseUp]);
+
+      const W = 800, H = 96;
+      const dragS = drag ? Math.min(drag.start, drag.current) : 0;
+      const dragE = drag ? Math.max(drag.start, drag.current) : 0;
+
+      const pwrArea = svgArea(WAVEFORM.power, W, H, 430);
+      const pwrLine = svgLine(WAVEFORM.power, W, H, 430);
+      const hrLine  = svgLine(WAVEFORM.hr,   W, H, 185);
+
+      return (
+        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+          <div>
+            <h2 style={{ fontSize:16, fontWeight:600, color:'var(--text)', marginBottom:4 }}>Trim workout</h2>
+            <p style={{ fontSize:13, color:'var(--text2)', lineHeight:1.6 }}>
+              Adjust start and end with the sliders. <strong style={{ fontWeight:500, color:'var(--text)' }}>Drag on the graph</strong> to mark a mid-workout section for removal.
+            </p>
+          </div>
+
+          {/* Graph card */}
+          <div style={{
+            background:'var(--surface)', border:'1px solid var(--border)',
+            borderRadius:'var(--r)', overflow:'hidden', boxShadow:'var(--sh)',
+          }}>
+            {/* Legend bar */}
+            <div style={{
+              display:'flex', alignItems:'center', gap:14, padding:'8px 14px',
+              background:'var(--surface2)', borderBottom:'1px solid var(--border)',
+              justifyContent:'flex-end',
+            }}>
+              <div style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, color:'var(--text3)' }}>
+                <div style={{ width:16, height:3, borderRadius:2, background:'var(--accent)', opacity:0.7 }} />
+                Power (W)
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, color:'var(--text3)' }}>
+                <div style={{ width:16, height:2, background:'oklch(0.62 0.155 32)' }} />
+                Heart Rate (bpm)
+              </div>
+              {cuts.length > 0 && (
+                <div style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, color:'var(--text3)' }}>
+                  <div style={{ width:14, height:10, borderRadius:2, border:'1px solid var(--bad)', background:`repeating-linear-gradient(45deg,var(--bad-bg) 0,var(--bad-bg) 2px,transparent 2px,transparent 5px)` }} />
+                  {cuts.length} cut{cuts.length > 1 ? 's' : ''}
+                </div>
+              )}
+            </div>
+
+            {/* Cut tool callout */}
+            <div style={{
+              display:'flex', alignItems:'center', gap:10,
+              padding:'9px 14px', background:'var(--accent-dim)',
+              borderBottom:'1px solid var(--border)',
+            }}>
+              <div style={{
+                width:28, height:28, borderRadius:'var(--r-sm)', flexShrink:0,
+                background:'var(--accent)', color:'var(--accent-fg)',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                fontSize:14, fontWeight:700,
+              }}>✂</div>
+              <div>
+                <div style={{ fontSize:12, fontWeight:600, color:'var(--accent)', lineHeight:1.3 }}>Cut tool</div>
+                <div style={{ fontSize:11, color:'var(--text2)', lineHeight:1.4 }}>
+                  Click and drag <strong style={{fontWeight:500,color:'var(--text)'}}>directly on the graph</strong> to mark a section for removal
+                </div>
+              </div>
+            </div>
+
+            {/* Interactive SVG */}
+            <div
+              ref={graphRef}
+              onMouseDown={onMouseDown}
+              style={{ position:'relative', cursor:'crosshair', userSelect:'none' }}
+            >
+              <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none"
+                style={{ display:'block', width:'100%', height:110 }}>
+                <defs>
+                  <linearGradient id="pwrFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.38" />
+                    <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.04" />
+                  </linearGradient>
+                  <pattern id="hatch" patternUnits="userSpaceOnUse" width="7" height="7" patternTransform="rotate(45)">
+                    <line x1="0" y1="0" x2="0" y2="7" stroke="var(--bad)" strokeWidth="2.5" strokeOpacity="0.45" />
+                  </pattern>
+                </defs>
+
+                {/* Trim-excluded regions */}
+                {trimStart > 0 && <rect x="0" y="0" width={`${trimStart}%`} height={H} fill="var(--surface3)" opacity="0.72" />}
+                {trimEnd < 100 && <rect x={`${trimEnd}%`} y="0" width={`${100 - trimEnd}%`} height={H} fill="var(--surface3)" opacity="0.72" />}
+
+                {/* Power */}
+                <path d={pwrArea} fill="url(#pwrFill)" />
+                <path d={pwrLine} fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeOpacity="0.75" />
+
+                {/* HR */}
+                <path d={hrLine} fill="none" stroke="oklch(0.62 0.155 32)" strokeWidth="1.5" strokeOpacity="0.72" />
+
+                {/* Cut zones */}
+                {cuts.map(c => (
+                  <rect key={c.id} x={`${c.start}%`} y="0" width={`${c.end - c.start}%`} height={H} fill="url(#hatch)" />
+                ))}
+
+                {/* Active drag */}
+                {drag && dragE - dragS > 0.5 && (
+                  <rect x={`${dragS}%`} y="0" width={`${dragE - dragS}%`} height={H}
+                    fill="var(--bad)" opacity="0.14"
+                    stroke="var(--bad)" strokeWidth="1" strokeOpacity="0.5" />
+                )}
+
+                {/* Trim boundary lines */}
+                {trimStart > 0 && <line x1={`${trimStart}%`} y1="0" x2={`${trimStart}%`} y2={H} stroke="var(--accent)" strokeWidth="2" strokeDasharray="3,2" />}
+                {trimEnd < 100  && <line x1={`${trimEnd}%`}   y1="0" x2={`${trimEnd}%`}   y2={H} stroke="var(--accent)" strokeWidth="2" strokeDasharray="3,2" />}
+              </svg>
+
+
+            </div>
+
+            {/* Trim sliders */}
+            <div style={{ padding:'10px 16px 14px', borderTop:'1px solid var(--border)', display:'flex', gap:20 }}>
+              <div style={{ flex:1 }}>
+                <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, color:'var(--text2)', marginBottom:5 }}>
+                  <span>Start</span>
+                  <span style={{ fontFamily:'var(--mono)', fontWeight:500, color:'var(--text)' }}>{fmtTime(pctToSec(trimStart))}</span>
+                </div>
+                <input type="range" min={0} max={trimEnd - 1} value={trimStart}
+                  onChange={e => setTrimStart(Number(e.target.value))}
+                  style={{ width:'100%', accentColor:'var(--accent)' }} />
+              </div>
+              <div style={{ flex:1 }}>
+                <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, color:'var(--text2)', marginBottom:5 }}>
+                  <span>End</span>
+                  <span style={{ fontFamily:'var(--mono)', fontWeight:500, color:'var(--text)' }}>{fmtTime(pctToSec(trimEnd))}</span>
+                </div>
+                <input type="range" min={trimStart + 1} max={100} value={trimEnd}
+                  onChange={e => setTrimEnd(Number(e.target.value))}
+                  style={{ width:'100%', accentColor:'var(--accent)' }} />
+              </div>
+            </div>
+          </div>
+
+          {/* Output summary pill */}
+          <div style={{
+            display:'flex', alignItems:'center', gap:6, padding:'9px 14px',
+            background:'var(--surface)', border:'1px solid var(--border)',
+            borderRadius:'var(--r-sm)', fontSize:12,
+          }}>
+            <span style={{ color:'var(--text2)' }}>Output:</span>
+            <span style={{ fontFamily:'var(--mono)', fontWeight:600, color:'var(--text)' }}>{fmtTime(durSec)}</span>
+            {cuts.length > 0 && (
+              <>
+                <span style={{ color:'var(--border2)', margin:'0 2px' }}>·</span>
+                <span style={{ color:'var(--text3)' }}>
+                  {cuts.length} section{cuts.length > 1 ? 's' : ''} cut
+                  {' ('}−{fmtTime(cutSec)}{')'}
+                </span>
+              </>
+            )}
+          </div>
+
+          {/* Cut list */}
+          {cuts.length > 0 && (
+            <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+              <div style={{ fontSize:10, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase', color:'var(--text3)', marginBottom:2 }}>
+                Removed sections
+              </div>
+              {cuts.map((c, i) => (
+                <div key={c.id} style={{
+                  display:'flex', alignItems:'center', gap:10,
+                  padding:'8px 12px',
+                  background:'var(--surface)', border:'1px solid var(--border)',
+                  borderRadius:'var(--r-sm)',
+                }}>
+                  <div style={{
+                    width:12, height:12, borderRadius:2, flexShrink:0,
+                    border:'1px solid var(--bad)',
+                    background:`repeating-linear-gradient(45deg,var(--bad-bg) 0,var(--bad-bg) 2px,transparent 2px,transparent 5px)`,
+                  }} />
+                  <span style={{ fontSize:12, color:'var(--text)', fontFamily:'var(--mono)' }}>
+                    {fmtTime(pctToSec(c.start))} – {fmtTime(pctToSec(c.end))}
+                  </span>
+                  <span style={{ fontSize:11, color:'var(--text3)', marginLeft:'auto' }}>
+                    {fmtTime(pctToSec(c.end - c.start))} removed
+                  </span>
+                  <button
+                    onClick={() => setCuts(cs => cs.filter(x => x.id !== c.id))}
+                    style={{
+                      background:'none', border:'none', cursor:'pointer',
+                      color:'var(--text3)', fontSize:16, lineHeight:1, padding:'1px 4px', borderRadius:3,
+                    }}
+                  >×</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    /* ── EXPORT step ─────────────────────────────────────────── */
+
+    function WaveformPreview({ trimStart, trimEnd, cuts }) {
+      const W = 800, H = 70;
+      return (
+        <div style={{
+          borderRadius:'var(--r-sm)', overflow:'hidden',
+          border:'1px solid var(--border)', background:'var(--surface2)',
+        }}>
+          <div style={{
+            display:'flex', alignItems:'center', justifyContent:'space-between',
+            padding:'7px 12px', borderBottom:'1px solid var(--border)',
+          }}>
+            <span style={{ fontSize:10, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase', color:'var(--text3)' }}>
+              Output preview
+            </span>
+            <div style={{ display:'flex', gap:12 }}>
+              {[['var(--accent)', 'Power'], ['oklch(0.62 0.155 32)', 'Heart Rate']].map(([c, l]) => (
+                <div key={l} style={{ display:'flex', alignItems:'center', gap:4, fontSize:10, color:'var(--text3)' }}>
+                  <div style={{ width:12, height:2, background:c, borderRadius:1 }} />{l}
+                </div>
+              ))}
+              {cuts.length > 0 && (
+                <div style={{ display:'flex', alignItems:'center', gap:4, fontSize:10, color:'var(--text3)' }}>
+                  <div style={{ width:12, height:8, border:'1px solid var(--bad)', borderRadius:1, background:`repeating-linear-gradient(45deg,var(--bad-bg) 0,var(--bad-bg) 2px,transparent 2px,transparent 5px)` }} />
+                  {cuts.length} cut{cuts.length > 1 ? 's' : ''}
+                </div>
+              )}
+            </div>
+          </div>
+          <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display:'block', width:'100%', height:72 }}>
+            <defs>
+              <linearGradient id="expPwr" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.35" />
+                <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.04" />
+              </linearGradient>
+              <pattern id="expHatch" patternUnits="userSpaceOnUse" width="7" height="7" patternTransform="rotate(45)">
+                <line x1="0" y1="0" x2="0" y2="7" stroke="var(--bad)" strokeWidth="2.5" strokeOpacity="0.45" />
+              </pattern>
+            </defs>
+            {trimStart > 0 && <rect x="0" y="0" width={`${trimStart}%`} height={H} fill="var(--surface3)" opacity="0.8" />}
+            {trimEnd < 100  && <rect x={`${trimEnd}%`} y="0" width={`${100-trimEnd}%`} height={H} fill="var(--surface3)" opacity="0.8" />}
+            <path d={svgArea(WAVEFORM.power, W, H, 430)} fill="url(#expPwr)" />
+            <path d={svgLine(WAVEFORM.power, W, H, 430)} fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeOpacity="0.72" />
+            <path d={svgLine(WAVEFORM.hr,    W, H, 185)} fill="none" stroke="oklch(0.62 0.155 32)" strokeWidth="1.5" strokeOpacity="0.72" />
+            {cuts.map(c => <rect key={c.id} x={`${c.start}%`} y="0" width={`${c.end-c.start}%`} height={H} fill="url(#expHatch)" />)}
+            {trimStart > 0 && <line x1={`${trimStart}%`} y1="0" x2={`${trimStart}%`} y2={H} stroke="var(--accent)" strokeWidth="1.5" strokeDasharray="3,2" />}
+            {trimEnd < 100  && <line x1={`${trimEnd}%`}   y1="0" x2={`${trimEnd}%`}   y2={H} stroke="var(--accent)" strokeWidth="1.5" strokeDasharray="3,2" />}
+          </svg>
+        </div>
+      );
+    }
+
+    function ExportPanel({ files, choices, trimStart, trimEnd, cuts }) {
+      const [name, setName]       = useState('merged_2024-04-27');
+      const [state, setState]     = useState('idle'); // idle | working | done
+      const included = FIELD_DEFS.filter(fd => choices[fd.id] !== null);
+      const excluded = FIELD_DEFS.filter(fd => choices[fd.id] === null);
+
+      const handleMerge = () => {
+        setState('working');
+        setTimeout(() => setState('done'), 1900);
+      };
+
+      return (
+        <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+          <div>
+            <h2 style={{ fontSize:17, fontWeight:600, color:'var(--text)', marginBottom:4 }}>Export merged file</h2>
+            <p style={{ fontSize:13, color:'var(--text2)', lineHeight:1.55 }}>
+              Review your choices, name the file, and export a merged <code style={{fontFamily:'var(--mono)',fontSize:12}}>.fit</code>.
+            </p>
+          </div>
+
+          <WaveformPreview trimStart={trimStart} trimEnd={trimEnd} cuts={cuts} />
+
+          {/* Summary card */}
+          <div style={{
+            background:'var(--surface)', border:'1px solid var(--border)',
+            borderRadius:'var(--r)', overflow:'hidden', boxShadow:'var(--sh)',
+          }}>
+            <div style={{
+              display:'grid', gridTemplateColumns:'1fr 1fr',
+              gap:0, borderBottom:'1px solid var(--border)',
+            }}>
+              <div style={{ padding:'14px 16px', borderRight:'1px solid var(--border)' }}>
+                <div style={{ fontSize:10, fontWeight:700, letterSpacing:'0.07em', textTransform:'uppercase', color:'var(--text3)', marginBottom:10 }}>
+                  Source files
+                </div>
+                {files.map((f, i) => (
+                  <div key={f.id} style={{ display:'flex', alignItems:'center', gap:7, marginBottom:6 }}>
+                    <div style={{ width:8, height:8, borderRadius:'50%', background:FILE_COLORS[i], flexShrink:0 }} />
+                    <FmtBadge format={f.format} />
+                    <span style={{ fontSize:11, color:'var(--text2)', fontFamily:'var(--mono)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                      {f.name}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ padding:'14px 16px' }}>
+                <div style={{ fontSize:10, fontWeight:700, letterSpacing:'0.07em', textTransform:'uppercase', color:'var(--text3)', marginBottom:10 }}>
+                  Fields in output
+                </div>
+                <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
+                  {included.map(fd => {
+                    const src = files.find(f => f.id === choices[fd.id]);
+                    return (
+                      <span key={fd.id} style={{
+                        fontSize:11, padding:'3px 8px', borderRadius:99,
+                        background:'var(--good-bg)', color:'var(--good)', fontWeight:500,
+                      }}>
+                        {fd.icon} {fd.label}
+                        {src && <span style={{ opacity:0.6, marginLeft:3, fontSize:10 }}>({src.format})</span>}
+                      </span>
+                    );
+                  })}
+                  {excluded.map(fd => (
+                    <span key={fd.id} style={{
+                      fontSize:11, padding:'3px 8px', borderRadius:99,
+                      background:'var(--bad-bg)', color:'var(--text3)', fontWeight:400,
+                      textDecoration:'line-through',
+                    }}>{fd.icon} {fd.label}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* filename */}
+            <div style={{ padding:'14px 16px', borderBottom:'1px solid var(--border)' }}>
+              <label style={{ fontSize:11, fontWeight:600, color:'var(--text2)', display:'block', marginBottom:6 }}>Output filename</label>
+              <div style={{ display:'flex', alignItems:'center' }}>
+                <input
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  disabled={state === 'done'}
+                  style={{
+                    flex:1, padding:'8px 11px',
+                    border:'1px solid var(--border2)', borderRight:'none',
+                    borderRadius:'var(--r-sm) 0 0 var(--r-sm)',
+                    background:'var(--surface2)', color:'var(--text)',
+                    fontFamily:'var(--mono)', fontSize:13, outline:'none',
+                  }}
+                />
+                <div style={{
+                  padding:'8px 11px',
+                  background:'var(--surface3)', border:'1px solid var(--border2)',
+                  borderRadius:'0 var(--r-sm) var(--r-sm) 0',
+                  fontSize:13, color:'var(--text3)', fontFamily:'var(--mono)',
+                }}>.fit</div>
+              </div>
+            </div>
+
+            {/* actions */}
+            <div style={{ padding:'14px 16px', display:'flex', gap:9, alignItems:'center' }}>
+              <button
+                onClick={handleMerge}
+                disabled={state !== 'idle'}
+                style={{
+                  flex:1, padding:'11px 20px',
+                  background: state === 'done' ? 'var(--good)' : 'var(--accent)',
+                  color:'var(--accent-fg)', border:'none',
+                  borderRadius:'var(--r-sm)', fontSize:14, fontWeight:600,
+                  cursor: state !== 'idle' ? 'default' : 'pointer',
+                  opacity: state === 'working' ? 0.75 : 1,
+                  transition:'all 0.2s',
+                  textAlign:'center',
+                }}
+              >
+                {state === 'done'
+                  ? `✓  Saved — ${name}.fit`
+                  : state === 'working'
+                  ? 'Merging…'
+                  : `Merge & Save  ${name}.fit`}
+              </button>
+              <button
+                disabled
+                style={{
+                  padding:'11px 14px', flexShrink:0,
+                  background:'var(--surface2)', color:'var(--text3)',
+                  border:'1px solid var(--border)', borderRadius:'var(--r-sm)',
+                  fontSize:13, fontWeight:500, cursor:'not-allowed',
+                  position:'relative',
+                }}
+              >
+                <span style={{ marginRight:5 }}>🟠</span>Upload to Strava
+                <span style={{
+                  position:'absolute', top:-7, right:-7,
+                  background:'var(--warn)', color:'#fff',
+                  fontSize:8, fontWeight:800, letterSpacing:'0.06em',
+                  padding:'2px 5px', borderRadius:99,
+                }}>SOON</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    Object.assign(window, { FilesPanel, FieldsPanel, TrimPanel, ExportPanel, QBadge, FmtBadge });
+  </script>
+
+  <!-- ═══════════════════════════════════════════════════════ APP -->
+  <script type="text/babel" id="ff-app">
+    const { useState, useEffect } = React;
+
+    const STEPS = [
+      { id:'files',  label:'Files',  num:'01' },
+      { id:'fields', label:'Fields', num:'02' },
+      { id:'trim',   label:'Trim',   num:'03' },
+      { id:'export', label:'Export', num:'04' },
+    ];
+
+    const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+      "layout": "steps",
+      "theme": "slate"
+    }/*EDITMODE-END*/;
+
+    /* shared state hook */
+    function useAppState() {
+      const [files,      setFiles]      = useState(ALL_MOCK_FILES.slice(0,2));
+      const defaultChoices = Object.fromEntries(FIELD_DEFS.map(fd => [fd.id, RECS[fd.id].src]));
+      const [choices,    setChoices]    = useState(defaultChoices);
+      const [trimStart,  setTrimStart]  = useState(0);
+      const [trimEnd,    setTrimEnd]    = useState(100);
+      const [cuts,       setCuts]       = useState([]);
+      return { files, setFiles, choices, setChoices, trimStart, setTrimStart, trimEnd, setTrimEnd, cuts, setCuts };
+    }
+
+    /* step panels lookup */
+    function StepContent({ stepId, files, setFiles, choices, setChoices, trimStart, setTrimStart, trimEnd, setTrimEnd, cuts, setCuts }) {
+      const map = {
+        files:  <FilesPanel  files={files} setFiles={setFiles} />,
+        fields: <FieldsPanel files={files} choices={choices} setChoices={setChoices} />,
+        trim:   <TrimPanel   trimStart={trimStart} setTrimStart={setTrimStart}
+                             trimEnd={trimEnd} setTrimEnd={setTrimEnd}
+                             cuts={cuts} setCuts={setCuts} />,
+        export: <ExportPanel files={files} choices={choices}
+                             trimStart={trimStart} trimEnd={trimEnd} cuts={cuts} />,
+      };
+      return map[stepId] || null;
+    }
+
+    /* ── LAYOUT: Steps ──────────────────────────────────────── */
+    function StepsLayout({ files, setFiles, choices, setChoices, trimStart, setTrimStart, trimEnd, setTrimEnd, cuts, setCuts }) {
+      const [active, setActive] = useState('files');
+      const idx = STEPS.findIndex(s => s.id === active);
+      const trimProps = { trimStart, setTrimStart, trimEnd, setTrimEnd, cuts, setCuts };
+
+      return (
+        <div style={{ display:'flex', flexDirection:'column', height:'100%', background:'var(--bg)' }}>
+          {/* step bar */}
+          <div style={{
+            display:'flex', background:'var(--surface)',
+            borderBottom:'1px solid var(--border)',
+          }}>
+            {STEPS.map((s, i) => {
+              const isActive = s.id === active;
+              const done = i < idx;
+              return (
+                <button key={s.id} onClick={() => setActive(s.id)} style={{
+                  flex:1, padding:'10px 6px 9px',
+                  background:'none', border:'none', borderBottom:`2px solid ${isActive ? 'var(--accent)' : 'transparent'}`,
+                  cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:3,
+                  color: isActive ? 'var(--accent)' : done ? 'var(--text2)' : 'var(--text3)',
+                }}>
+                  <span style={{
+                    fontSize:9, fontFamily:'var(--mono)', fontWeight:700,
+                    letterSpacing:'0.1em', textTransform:'uppercase',
+                    opacity: done ? 0.9 : 0.7,
+                  }}>
+                    {done ? '✓' : s.num}
+                  </span>
+                  <span style={{ fontSize:12, fontWeight: isActive ? 600 : 500, letterSpacing:'-0.01em' }}>{s.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* content */}
+          <div style={{ flex:1, overflowY:'auto', padding:'22px 22px 14px' }}>
+            <StepContent stepId={active} files={files} setFiles={setFiles} choices={choices} setChoices={setChoices} {...trimProps} />
+          </div>
+
+          {/* nav */}
+          <div style={{
+            display:'flex', justifyContent:'space-between', alignItems:'center',
+            padding:'11px 22px', borderTop:'1px solid var(--border)', background:'var(--surface)',
+          }}>
+            <button
+              onClick={() => idx > 0 && setActive(STEPS[idx-1].id)}
+              style={{
+                padding:'7px 16px', background:'none',
+                border:'1px solid var(--border2)', borderRadius:'var(--r-sm)',
+                color: idx === 0 ? 'var(--text3)' : 'var(--text)',
+                fontSize:12, fontWeight:500, cursor: idx === 0 ? 'default' : 'pointer',
+                opacity: idx === 0 ? 0.38 : 1,
+              }}
+            >← Back</button>
+
+            {idx < STEPS.length-1 && (
+              <button onClick={() => setActive(STEPS[idx+1].id)} style={{
+                padding:'7px 18px',
+                background:'var(--accent)', color:'var(--accent-fg)',
+                border:'none', borderRadius:'var(--r-sm)',
+                fontSize:12, fontWeight:600, cursor:'pointer',
+              }}>Continue →</button>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    /* ── LAYOUT: Sidebar ────────────────────────────────────── */
+    function SidebarLayout({ files, setFiles, choices, setChoices, trimStart, setTrimStart, trimEnd, setTrimEnd, cuts, setCuts }) {
+      const [active, setActive] = useState('files');
+      const idx = STEPS.findIndex(s => s.id === active);
+      const trimProps = { trimStart, setTrimStart, trimEnd, setTrimEnd, cuts, setCuts };
+
+      return (
+        <div style={{ display:'flex', height:'100%' }}>
+          {/* sidebar */}
+          <div style={{
+            width:188, flexShrink:0, borderRight:'1px solid var(--border)',
+            background:'var(--surface2)', display:'flex', flexDirection:'column',
+          }}>
+            <div style={{ padding:'16px 18px 14px', borderBottom:'1px solid var(--border)' }}>
+              <div style={{ fontSize:13, fontWeight:700, color:'var(--text)', letterSpacing:'-0.02em' }}>fitfilemaker</div>
+              <div style={{ fontSize:10, color:'var(--text3)', marginTop:1 }}>Workout file merger</div>
+            </div>
+
+            <nav style={{ flex:1, padding:'8px 0' }}>
+              {STEPS.map((s, i) => {
+                const isActive = s.id === active;
+                const done = i < idx;
+                return (
+                  <button key={s.id} onClick={() => setActive(s.id)} style={{
+                    width:'100%', display:'flex', alignItems:'center', gap:10,
+                    padding:'9px 18px',
+                    background: isActive ? 'var(--accent-dim)' : 'none',
+                    border:'none',
+                    borderLeft:`3px solid ${isActive ? 'var(--accent)' : 'transparent'}`,
+                    cursor:'pointer', textAlign:'left',
+                  }}>
+                    <span style={{
+                      width:20, height:20, borderRadius:'50%', flexShrink:0,
+                      background: isActive ? 'var(--accent)' : done ? 'var(--good)' : 'var(--surface3)',
+                      color: (isActive || done) ? 'var(--accent-fg)' : 'var(--text3)',
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                      fontSize:9, fontWeight:700, fontFamily:'var(--mono)',
+                    }}>{done ? '✓' : i+1}</span>
+                    <span style={{ fontSize:12, fontWeight: isActive ? 600 : 400, color: isActive ? 'var(--accent)' : 'var(--text)' }}>
+                      {s.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </nav>
+
+            {/* loaded files mini-list */}
+            {files.length > 0 && (
+              <div style={{ padding:'12px 18px', borderTop:'1px solid var(--border)' }}>
+                <div style={{ fontSize:9, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase', color:'var(--text3)', marginBottom:7 }}>
+                  Loaded
+                </div>
+                {files.map((f, i) => (
+                  <div key={f.id} style={{ display:'flex', alignItems:'center', gap:6, marginBottom:4 }}>
+                    <div style={{ width:6, height:6, borderRadius:'50%', background:FILE_COLORS[i], flexShrink:0 }} />
+                    <span style={{ fontSize:10, color:'var(--text2)', fontFamily:'var(--mono)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                      {f.name}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* content */}
+          <div style={{ flex:1, overflowY:'auto', padding:'22px', background:'var(--bg)' }}>
+            <StepContent stepId={active} files={files} setFiles={setFiles} choices={choices} setChoices={setChoices} {...trimProps} />
+          </div>
+        </div>
+      );
+    }
+
+    /* ── LAYOUT: One-page accordion ─────────────────────────── */
+    function OnepageLayout({ files, setFiles, choices, setChoices, trimStart, setTrimStart, trimEnd, setTrimEnd, cuts, setCuts }) {
+      const [open, setOpen] = useState({ files:true, fields:true, trim:false, export:false });
+      const toggle = id => setOpen(p => ({ ...p, [id]: !p[id] }));
+
+      const secs = [
+        { id:'files',  label:'01  Files',  content: <FilesPanel  files={files} setFiles={setFiles} /> },
+        { id:'fields', label:'02  Fields', content: <FieldsPanel files={files} choices={choices} setChoices={setChoices} /> },
+        { id:'trim',   label:'03  Trim',   content: <TrimPanel   trimStart={trimStart} setTrimStart={setTrimStart} trimEnd={trimEnd} setTrimEnd={setTrimEnd} cuts={cuts} setCuts={setCuts} /> },
+        { id:'export', label:'04  Export', content: <ExportPanel files={files} choices={choices} trimStart={trimStart} trimEnd={trimEnd} cuts={cuts} /> },
+      ];
+
+      return (
+        <div style={{ padding:'12px', display:'flex', flexDirection:'column', gap:7, overflowY:'auto', height:'100%', background:'var(--bg)' }}>
+          {secs.map(sec => (
+            <div key={sec.id} style={{
+              background:'var(--surface)', border:'1px solid var(--border)',
+              borderRadius:'var(--r)', overflow:'hidden',
+            }}>
+              <button
+                onClick={() => toggle(sec.id)}
+                style={{
+                  width:'100%', display:'flex', alignItems:'center',
+                  padding:'12px 16px', background: open[sec.id] ? 'var(--accent-dim)' : 'none',
+                  border:'none', borderBottom: open[sec.id] ? '1px solid var(--border)' : 'none',
+                  cursor:'pointer', gap:10,
+                }}
+              >
+                <span style={{
+                  fontSize:12, fontWeight:700, letterSpacing:'-0.01em',
+                  color: open[sec.id] ? 'var(--accent)' : 'var(--text)',
+                  flex:1, textAlign:'left',
+                  fontFamily:'var(--mono)',
+                }}>{sec.label}</span>
+                <span style={{ fontSize:10, color:'var(--text3)' }}>{open[sec.id] ? '▲' : '▼'}</span>
+              </button>
+              {open[sec.id] && (
+                <div style={{ padding:'18px 18px' }}>{sec.content}</div>
+              )}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    /* ── Window chrome ──────────────────────────────────────── */
+    function AppWindow({ children }) {
+      return (
+        <div style={{
+          width:980, height:660, borderRadius:14, overflow:'hidden',
+          boxShadow:'0 0 0 1px rgba(0,0,0,0.22), 0 32px 80px rgba(0,0,0,0.38)',
+          display:'flex', flexDirection:'column',
+          background:'var(--surface)',
+          transition:'box-shadow 0.3s',
+        }}>
+          {/* titlebar */}
+          <div style={{
+            height:40, flexShrink:0,
+            background:'var(--surface)',
+            borderBottom:'1px solid var(--border)',
+            display:'flex', alignItems:'center',
+            padding:'0 14px',
+            WebkitAppRegion:'drag',
+          }}>
+            {/* traffic lights */}
+            <div style={{ display:'flex', gap:7, alignItems:'center' }}>
+              {['#ff5f57','#febc2e','#27c840'].map((c, i) => (
+                <div key={i} style={{ width:12, height:12, borderRadius:'50%', background:c, border:'0.5px solid rgba(0,0,0,0.12)' }} />
+              ))}
+            </div>
+            <div style={{ flex:1, textAlign:'center', fontSize:12, fontWeight:600, color:'var(--text2)', letterSpacing:'0.01em' }}>
+              fitfilemaker
+            </div>
+            <div style={{ width:46 }} /> {/* balance traffic lights */}
+          </div>
+
+          {/* content */}
+          <div style={{ flex:1, overflow:'hidden' }}>
+            {children}
+          </div>
+        </div>
+      );
+    }
+
+    /* ── Root App ───────────────────────────────────────────── */
+    function App() {
+      const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
+      const { files, setFiles, choices, setChoices, trimStart, setTrimStart, trimEnd, setTrimEnd, cuts, setCuts } = useAppState();
+      const p = { files, setFiles, choices, setChoices, trimStart, setTrimStart, trimEnd, setTrimEnd, cuts, setCuts };
+
+      useEffect(() => {
+        document.body.className = `theme-${tweaks.theme}`;
+      }, [tweaks.theme]);
+
+      const layouts = {
+        steps:   <StepsLayout   {...p} />,
+        sidebar: <SidebarLayout {...p} />,
+        onepage: <OnepageLayout {...p} />,
+      };
+
+      return (
+        <>
+          <AppWindow>{layouts[tweaks.layout]}</AppWindow>
+
+          <TweaksPanel defaults={TWEAK_DEFAULTS}>
+            <TweakSection label="Layout" />
+            <TweakRadio
+              label="View"
+              value={tweaks.layout}
+              options={['steps','sidebar','onepage']}
+              onChange={v => setTweak('layout', v)}
+            />
+            <TweakSection label="Color theme" />
+            <TweakRadio
+              label="Theme"
+              value={tweaks.theme}
+              options={['slate','warm','sage']}
+              onChange={v => setTweak('theme', v)}
+            />
+          </TweaksPanel>
+        </>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
