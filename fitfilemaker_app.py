@@ -688,10 +688,6 @@ class FieldChip(QFrame):
         row.addStretch()
         lay.addLayout(row)
 
-        if sub_val:
-            sub = QLabel(sub_val)
-            sub.setStyleSheet(f"color: {T.get('text3','#8B90A8')}; font-size: 10px; border: none;")
-            lay.addWidget(sub)
 
 
 class FileCard(QFrame):
@@ -715,6 +711,7 @@ class FileCard(QFrame):
 
         # ── Header row ──────────────────────────────────────────────
         self._header = QWidget()
+        self._header.setFixedHeight(56)
         self._header.setCursor(Qt.CursorShape.PointingHandCursor)
         self._header.setStyleSheet("background: transparent;")
         hlay = QHBoxLayout(self._header)
@@ -723,12 +720,13 @@ class FileCard(QFrame):
 
         # Colored bar
         bar = QFrame()
-        bar.setFixedSize(3, 42)
+        bar.setFixedSize(3, 56)
         bar.setStyleSheet(f"background: {color}; border-radius: 2px; border: none;")
         hlay.addWidget(bar)
 
         # File info
         info = QVBoxLayout()
+        info.setContentsMargins(0, 11, 0, 11)
         info.setSpacing(2)
         top_row = QHBoxLayout()
         top_row.setSpacing(7)
@@ -882,6 +880,7 @@ class FilesStep(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
         inner = QWidget()
         inner.setStyleSheet("background: transparent;")
@@ -1306,6 +1305,7 @@ class FieldsStep(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
         inner = QWidget()
         inner.setStyleSheet("background: transparent;")
@@ -1400,6 +1400,7 @@ class TrimStep(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
         inner = QWidget()
         inner.setStyleSheet("background: transparent;")
@@ -1760,6 +1761,7 @@ class ExportStep(QWidget):
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
 
         inner = QWidget()
@@ -2104,7 +2106,7 @@ class StepBar(QWidget):
 
     def __init__(self):
         super().__init__()
-        self.setFixedHeight(40)
+        self.setFixedHeight(56)
         self.setStyleSheet(
             f"background: {T.get('surface','#FEFEFF')};"
             f" border-bottom: 1px solid {T.get('border','#DEE0E8')};"
@@ -2149,7 +2151,7 @@ class StepBar(QWidget):
             btn.setText(f"{num_text}\n{label}")
             btn.setStyleSheet(
                 f"QPushButton {{ background: none; {border} color: {col};"
-                f" font-size: 12px; font-weight: {wt}; padding: 0; }}"
+                f" font-size: 12px; font-weight: {wt}; padding: 10px 0 8px 0; }}"
             )
 
 
@@ -2258,8 +2260,8 @@ class MainWindow(QMainWindow):
         super().__init__()
         self._dark = dark
         self.setWindowTitle("fitfilemaker")
-        self.setMinimumSize(820, 580)
-        self.resize(980, 660)
+        self.setMinimumSize(1060, 680)
+        self.resize(1160, 740)
 
         self._state = AppState()
         self._step_idx = 0
