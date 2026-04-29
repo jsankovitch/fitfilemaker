@@ -1093,9 +1093,14 @@ class SourceButton(QFrame):
         )
         lay.addWidget(val_lbl)
 
-        # Quality badge
+        # Quality badge — pill should not stretch full width
         self._badge = QualityBadge(self._quality)
-        lay.addWidget(self._badge)
+        badge_row = QHBoxLayout()
+        badge_row.setContentsMargins(0, 0, 0, 0)
+        badge_row.setSpacing(0)
+        badge_row.addWidget(self._badge)
+        badge_row.addStretch()
+        lay.addLayout(badge_row)
 
         self._apply_selected_style()
 
@@ -1162,9 +1167,7 @@ class FieldRow(QFrame):
         # Field label column
         lbl_col = QWidget()
         lbl_col.setFixedWidth(130)
-        lbl_col.setStyleSheet(
-            f"background: transparent; border-right: 1px solid {T.get('border','#DEE0E8')};"
-        )
+        lbl_col.setStyleSheet("background: transparent;")
         lbl_lay = QVBoxLayout(lbl_col)
         lbl_lay.setContentsMargins(14, 13, 14, 13)
         lbl_lay.setSpacing(1)
@@ -1185,6 +1188,12 @@ class FieldRow(QFrame):
         )
         lbl_lay.addWidget(unit_lbl)
         row_lay.addWidget(lbl_col)
+
+        # Separator between label column and source buttons
+        sep_lbl = QFrame()
+        sep_lbl.setFrameShape(QFrame.Shape.VLine)
+        sep_lbl.setStyleSheet(f"color: {T.get('border','#DEE0E8')}; max-width: 1px;")
+        row_lay.addWidget(sep_lbl)
 
         # Source buttons
         src_area = QWidget()
