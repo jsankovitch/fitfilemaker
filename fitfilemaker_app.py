@@ -1028,7 +1028,9 @@ class FilesStep(QWidget):
 # Step 2 — Fields
 # ---------------------------------------------------------------------------
 
-class SourceButton(QPushButton):
+class SourceButton(QFrame):
+    clicked = Signal()
+
     def __init__(self, wf: WorkoutFile, field_id: str,
                  is_rec: bool, dark: bool = False):
         super().__init__()
@@ -1045,7 +1047,14 @@ class SourceButton(QPushButton):
         self._display = display_val
 
         self.setEnabled(quality != "none")
+        if quality != "none":
+            self.setCursor(Qt.CursorShape.PointingHandCursor)
         self._build_ui()
+
+    def mousePressEvent(self, event) -> None:
+        if self.isEnabled():
+            self.clicked.emit()
+        super().mousePressEvent(event)
 
     def _build_ui(self) -> None:
         lay = QVBoxLayout(self)
@@ -1099,8 +1108,7 @@ class SourceButton(QPushButton):
         acc = T.get("accent", "#4A55C0")
         border_left = f"border-left: 3px solid {acc};" if self._selected else "border-left: 3px solid transparent;"
         self.setStyleSheet(
-            f"QPushButton {{ background: {bg}; border: none; {border_left} text-align: left; }}"
-            f"QPushButton:disabled {{ opacity: 0.38; }}"
+            f"QFrame {{ background: {bg}; border: none; {border_left} }}"
         )
         # Update child label colors
         file_lbl = self.findChild(QLabel, "file_lbl")
@@ -1201,6 +1209,12 @@ class FieldRow(QFrame):
 
         row_lay.addWidget(src_area, 1)
 
+        # Full-height separator before Exclude
+        sep_excl = QFrame()
+        sep_excl.setFrameShape(QFrame.Shape.VLine)
+        sep_excl.setStyleSheet(f"color: {T.get('border','#DEE0E8')}; max-width: 1px;")
+        row_lay.addWidget(sep_excl)
+
         # Exclude button
         self._excl_btn = QPushButton("⊘\nExclude")
         self._excl_btn.setFixedWidth(76)
@@ -1208,16 +1222,24 @@ class FieldRow(QFrame):
         self._update_excl_style(choice is None)
         row_lay.addWidget(self._excl_btn)
 
-        # Note toggle
+        # Full-height separator before note button
+        sep_note = QFrame()
+        sep_note.setFrameShape(QFrame.Shape.VLine)
+        sep_note.setStyleSheet(f"color: {T.get('border','#DEE0E8')}; max-width: 1px;")
+        row_lay.addWidget(sep_note)
+
+        # Note toggle — small rounded square button
         self._note_btn = QPushButton("?")
-        self._note_btn.setFixedWidth(36)
+        self._note_btn.setFixedSize(36, 36)
         self._note_btn.setCheckable(True)
         self._note_btn.setStyleSheet(
-            f"QPushButton {{ background: none;"
-            f" border-left: 1px solid {T.get('border','#DEE0E8')};"
-            f" color: {T.get('text3','#8B90A8')}; font-size: 13px; font-weight: 600; }}"
+            f"QPushButton {{ background: {T.get('surface2','#ECEEF3')};"
+            f" border: 1px solid {T.get('border2','#C2C5D4')}; border-radius: 6px;"
+            f" color: {T.get('text3','#8B90A8')}; font-size: 13px; font-weight: 500;"
+            f" margin: 8px 10px; padding: 0; }}"
             f"QPushButton:checked {{ background: {T.get('accent_dim','#EDF0FC')};"
-            f" color: {T.get('accent','#4A55C0')}; }}"
+            f" color: {T.get('accent','#4A55C0')};"
+            f" border-color: {T.get('accent','#4A55C0')}; }}"
         )
         self._note_btn.toggled.connect(self._toggle_note)
         row_lay.addWidget(self._note_btn)
@@ -1275,7 +1297,7 @@ class FieldRow(QFrame):
             wt = "400"
         self._excl_btn.setStyleSheet(
             f"QPushButton {{ background: {bg}; color: {fg}; font-weight: {wt};"
-            f" border: none; border-left: 1px solid {T.get('border','#DEE0E8')}; }}"
+            f" border: none; }}"
         )
 
     def _update_border(self) -> None:
