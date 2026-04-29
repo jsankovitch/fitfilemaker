@@ -281,10 +281,10 @@ def _pwx_device_make(tree) -> Optional[str]:
     import xml.etree.ElementTree as ET
     NS = {"p": "http://www.peaksware.com/PWX/1/0"}
     workout = tree.getroot().find("p:workout", NS)
-    if not workout:
+    if workout is None:
         return None
     device = workout.find("p:device", NS)
-    if not device:
+    if device is None:
         return None
     make = device.find("p:make", NS)
     return make.text if make is not None else None
@@ -1046,6 +1046,7 @@ class SourceButton(QFrame):
         self._quality = quality
         self._display = display_val
 
+        self.setObjectName("source_btn")
         self.setEnabled(quality != "none")
         if quality != "none":
             self.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -1113,7 +1114,7 @@ class SourceButton(QFrame):
         acc = T.get("accent", "#4A55C0")
         border_left = f"border-left: 3px solid {acc};" if self._selected else "border-left: 3px solid transparent;"
         self.setStyleSheet(
-            f"QFrame {{ background: {bg}; border: none; {border_left} }}"
+            f"#source_btn {{ background: {bg}; border: none; {border_left} }}"
         )
         # Update child label colors
         file_lbl = self.findChild(QLabel, "file_lbl")
@@ -1206,7 +1207,7 @@ class FieldRow(QFrame):
             is_rec = (wf.id == rec_fid)
             btn = SourceButton(wf, self._field_id, is_rec, self._dark)
             btn.set_selected(choice == wf.id)
-            btn.clicked.connect(lambda _, fid=wf.id: self._on_src(fid))
+            btn.clicked.connect(lambda fid=wf.id: self._on_src(fid))
             self._src_buttons[wf.id] = btn
             src_lay.addWidget(btn)
             # Separator line between buttons
@@ -1227,6 +1228,7 @@ class FieldRow(QFrame):
         # Exclude button
         self._excl_btn = QPushButton("⊘\nExclude")
         self._excl_btn.setFixedWidth(76)
+        self._excl_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
         self._excl_btn.clicked.connect(lambda: self._on_src(None))
         self._update_excl_style(choice is None)
         row_lay.addWidget(self._excl_btn)
@@ -1258,7 +1260,7 @@ class FieldRow(QFrame):
         self._note_panel = QFrame()
         self._note_panel.setStyleSheet(
             f"QFrame {{ background: {T.get('accent_dim','#EDF0FC')};"
-            f" border-top: 1px solid {T.get('border','#DEE0E8')}; border-radius: 0; }}"
+            f" border: none; border-radius: 0 0 10px 10px; }}"
         )
         np_lay = QHBoxLayout(self._note_panel)
         np_lay.setContentsMargins(14, 10, 14, 10)
@@ -1297,16 +1299,18 @@ class FieldRow(QFrame):
 
     def _update_excl_style(self, excluded: bool) -> None:
         if excluded:
-            bg = T.get("bad_bg", "#EEF0F5")
-            fg = T.get("bad", "#6A6E85")
+            bg = T.get("accent_dim", "#EDF0FC")
+            fg = T.get("accent", "#4A55C0")
+            bl = f"border-left: 3px solid {T.get('accent','#4A55C0')};"
             wt = "600"
         else:
             bg = "transparent"
             fg = T.get("text3", "#8B90A8")
+            bl = "border-left: 3px solid transparent;"
             wt = "400"
         self._excl_btn.setStyleSheet(
             f"QPushButton {{ background: {bg}; color: {fg}; font-weight: {wt};"
-            f" border: none; }}"
+            f" {bl} border-top: none; border-right: none; border-bottom: none; }}"
         )
 
     def _update_border(self) -> None:
