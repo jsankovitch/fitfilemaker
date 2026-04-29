@@ -281,10 +281,10 @@ def _pwx_device_make(tree) -> Optional[str]:
     import xml.etree.ElementTree as ET
     NS = {"p": "http://www.peaksware.com/PWX/1/0"}
     workout = tree.getroot().find("p:workout", NS)
-    if not workout:
+    if workout is None:
         return None
     device = workout.find("p:device", NS)
-    if not device:
+    if device is None:
         return None
     make = device.find("p:make", NS)
     return make.text if make is not None else None
@@ -323,12 +323,16 @@ def _recompute_overlap(state: AppState) -> None:
     state.extra_fit = {}
     state.base_start_utc = None
 
-    if len(state.files) < 2:
+    if not state.files:
         return
 
     base = state.files[0]
     state.base_file_id = base.id
     state.base_start_utc = base.start_utc
+
+    if len(state.files) == 1:
+        state.base_samples = base.samples
+        return
 
     secondaries = []
     for wf in state.files[1:]:
@@ -358,7 +362,8 @@ def _recompute_recommendations(state: AppState) -> None:
 def _auto_filename(state: AppState) -> str:
     if state.files:
         try:
-            return f"merged_{state.files[0].start_utc.strftime('%Y-%m-%d_%H%M')}"
+            prefix = "trimmed" if len(state.files) == 1 else "merged"
+            return f"{prefix}_{state.files[0].start_utc.strftime('%Y-%m-%d_%H%M')}"
         except Exception:
             pass
     return "merged_workout"
@@ -970,6 +975,12 @@ class FilesStep(QWidget):
                 f"field recommendations are ready on the next step."
             )
             self._banner.show()
+        elif n == 1:
+            self._banner_text.setText(
+                "<b>1 file loaded.</b> You can trim and export this file, "
+                "or add a second file to merge."
+            )
+            self._banner.show()
         else:
             self._banner.hide()
 
@@ -1017,7 +1028,9 @@ class FilesStep(QWidget):
 # Step 2 — Fields
 # ---------------------------------------------------------------------------
 
-class SourceButton(QPushButton):
+class SourceButton(QFrame):
+    clicked = Signal()
+
     def __init__(self, wf: WorkoutFile, field_id: str,
                  is_rec: bool, dark: bool = False):
         super().__init__()
@@ -1033,8 +1046,16 @@ class SourceButton(QPushButton):
         self._quality = quality
         self._display = display_val
 
+        self.setObjectName("source_btn")
         self.setEnabled(quality != "none")
+        if quality != "none":
+            self.setCursor(Qt.CursorShape.PointingHandCursor)
         self._build_ui()
+
+    def mousePressEvent(self, event) -> None:
+        if self.isEnabled():
+            self.clicked.emit()
+        super().mousePressEvent(event)
 
     def _build_ui(self) -> None:
         lay = QVBoxLayout(self)
@@ -1073,9 +1094,14 @@ class SourceButton(QPushButton):
         )
         lay.addWidget(val_lbl)
 
-        # Quality badge
+        # Quality badge — pill should not stretch full width
         self._badge = QualityBadge(self._quality)
-        lay.addWidget(self._badge)
+        badge_row = QHBoxLayout()
+        badge_row.setContentsMargins(0, 0, 0, 0)
+        badge_row.setSpacing(0)
+        badge_row.addWidget(self._badge)
+        badge_row.addStretch()
+        lay.addLayout(badge_row)
 
         self._apply_selected_style()
 
@@ -1088,8 +1114,7 @@ class SourceButton(QPushButton):
         acc = T.get("accent", "#4A55C0")
         border_left = f"border-left: 3px solid {acc};" if self._selected else "border-left: 3px solid transparent;"
         self.setStyleSheet(
-            f"QPushButton {{ background: {bg}; border: none; {border_left} text-align: left; }}"
-            f"QPushButton:disabled {{ opacity: 0.38; }}"
+            f"#source_btn {{ background: {bg}; border: none; {border_left} }}"
         )
         # Update child label colors
         file_lbl = self.findChild(QLabel, "file_lbl")
@@ -1143,9 +1168,7 @@ class FieldRow(QFrame):
         # Field label column
         lbl_col = QWidget()
         lbl_col.setFixedWidth(130)
-        lbl_col.setStyleSheet(
-            f"background: transparent; border-right: 1px solid {T.get('border','#DEE0E8')};"
-        )
+        lbl_col.setStyleSheet("background: transparent;")
         lbl_lay = QVBoxLayout(lbl_col)
         lbl_lay.setContentsMargins(14, 13, 14, 13)
         lbl_lay.setSpacing(1)
@@ -1167,6 +1190,12 @@ class FieldRow(QFrame):
         lbl_lay.addWidget(unit_lbl)
         row_lay.addWidget(lbl_col)
 
+        # Separator between label column and source buttons
+        sep_lbl = QFrame()
+        sep_lbl.setFrameShape(QFrame.Shape.VLine)
+        sep_lbl.setStyleSheet(f"color: {T.get('border','#DEE0E8')}; max-width: 1px;")
+        row_lay.addWidget(sep_lbl)
+
         # Source buttons
         src_area = QWidget()
         src_area.setStyleSheet("background: transparent;")
@@ -1178,7 +1207,7 @@ class FieldRow(QFrame):
             is_rec = (wf.id == rec_fid)
             btn = SourceButton(wf, self._field_id, is_rec, self._dark)
             btn.set_selected(choice == wf.id)
-            btn.clicked.connect(lambda _, fid=wf.id: self._on_src(fid))
+            btn.clicked.connect(lambda fid=wf.id: self._on_src(fid))
             self._src_buttons[wf.id] = btn
             src_lay.addWidget(btn)
             # Separator line between buttons
@@ -1190,23 +1219,38 @@ class FieldRow(QFrame):
 
         row_lay.addWidget(src_area, 1)
 
+        # Full-height separator before Exclude
+        sep_excl = QFrame()
+        sep_excl.setFrameShape(QFrame.Shape.VLine)
+        sep_excl.setStyleSheet(f"color: {T.get('border','#DEE0E8')}; max-width: 1px;")
+        row_lay.addWidget(sep_excl)
+
         # Exclude button
         self._excl_btn = QPushButton("⊘\nExclude")
         self._excl_btn.setFixedWidth(76)
+        self._excl_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
         self._excl_btn.clicked.connect(lambda: self._on_src(None))
         self._update_excl_style(choice is None)
         row_lay.addWidget(self._excl_btn)
 
-        # Note toggle
+        # Full-height separator before note button
+        sep_note = QFrame()
+        sep_note.setFrameShape(QFrame.Shape.VLine)
+        sep_note.setStyleSheet(f"color: {T.get('border','#DEE0E8')}; max-width: 1px;")
+        row_lay.addWidget(sep_note)
+
+        # Note toggle — small rounded square button
         self._note_btn = QPushButton("?")
-        self._note_btn.setFixedWidth(36)
+        self._note_btn.setFixedSize(36, 36)
         self._note_btn.setCheckable(True)
         self._note_btn.setStyleSheet(
-            f"QPushButton {{ background: none;"
-            f" border-left: 1px solid {T.get('border','#DEE0E8')};"
-            f" color: {T.get('text3','#8B90A8')}; font-size: 13px; font-weight: 600; }}"
+            f"QPushButton {{ background: {T.get('surface2','#ECEEF3')};"
+            f" border: 1px solid {T.get('border2','#C2C5D4')}; border-radius: 6px;"
+            f" color: {T.get('text3','#8B90A8')}; font-size: 13px; font-weight: 500;"
+            f" margin: 8px 10px; padding: 0; }}"
             f"QPushButton:checked {{ background: {T.get('accent_dim','#EDF0FC')};"
-            f" color: {T.get('accent','#4A55C0')}; }}"
+            f" color: {T.get('accent','#4A55C0')};"
+            f" border-color: {T.get('accent','#4A55C0')}; }}"
         )
         self._note_btn.toggled.connect(self._toggle_note)
         row_lay.addWidget(self._note_btn)
@@ -1216,7 +1260,7 @@ class FieldRow(QFrame):
         self._note_panel = QFrame()
         self._note_panel.setStyleSheet(
             f"QFrame {{ background: {T.get('accent_dim','#EDF0FC')};"
-            f" border-top: 1px solid {T.get('border','#DEE0E8')}; border-radius: 0; }}"
+            f" border: none; border-radius: 0 0 10px 10px; }}"
         )
         np_lay = QHBoxLayout(self._note_panel)
         np_lay.setContentsMargins(14, 10, 14, 10)
@@ -1255,16 +1299,18 @@ class FieldRow(QFrame):
 
     def _update_excl_style(self, excluded: bool) -> None:
         if excluded:
-            bg = T.get("bad_bg", "#EEF0F5")
-            fg = T.get("bad", "#6A6E85")
+            bg = T.get("accent_dim", "#EDF0FC")
+            fg = T.get("accent", "#4A55C0")
+            bl = f"border-left: 3px solid {T.get('accent','#4A55C0')};"
             wt = "600"
         else:
             bg = "transparent"
             fg = T.get("text3", "#8B90A8")
+            bl = "border-left: 3px solid transparent;"
             wt = "400"
         self._excl_btn.setStyleSheet(
             f"QPushButton {{ background: {bg}; color: {fg}; font-weight: {wt};"
-            f" border: none; border-left: 1px solid {T.get('border','#DEE0E8')}; }}"
+            f" {bl} border-top: none; border-right: none; border-bottom: none; }}"
         )
 
     def _update_border(self) -> None:
@@ -1359,7 +1405,7 @@ class FieldsStep(QWidget):
             row.deleteLater()
         self._rows.clear()
 
-        if len(self._state.files) < 2:
+        if not self._state.files:
             return
 
         for fid in FIELD_ORDER:
@@ -2128,11 +2174,13 @@ class StepBar(QWidget):
 
         self._active = "files"
         self._completed: set = set()
+        self._can_advance: bool = False
         self._update_styles()
 
-    def set_active(self, step_id: str, completed: set) -> None:
+    def set_active(self, step_id: str, completed: set, can_advance: bool = True) -> None:
         self._active = step_id
         self._completed = completed
+        self._can_advance = can_advance
         self._update_styles()
 
     def _update_styles(self) -> None:
@@ -2141,17 +2189,26 @@ class StepBar(QWidget):
             label = btn.property("label")
             is_active = step_id == self._active
             is_done = step_id in self._completed
+            is_locked = not self._can_advance and not is_active and not is_done
 
             num_text = "✓" if is_done else num
-            col = T.get("accent", "#4A55C0") if is_active else (
-                T.get("text2", "#5B6080") if is_done else T.get("text3", "#8B90A8")
-            )
+            if is_active:
+                col = T.get("accent", "#4A55C0")
+            elif is_locked:
+                col = T.get("border2", "#C2C5D4")
+            elif is_done:
+                col = T.get("text2", "#5B6080")
+            else:
+                col = T.get("text3", "#8B90A8")
             border = f"border-bottom: 2px solid {T.get('accent','#4A55C0')};" if is_active else "border-bottom: 2px solid transparent;"
             wt = "600" if is_active else "500"
             btn.setText(f"{num_text}\n{label}")
             btn.setStyleSheet(
                 f"QPushButton {{ background: none; {border} color: {col};"
                 f" font-size: 12px; font-weight: {wt}; padding: 10px 0 8px 0; }}"
+            )
+            btn.setCursor(
+                Qt.CursorShape.ArrowCursor if is_locked else Qt.CursorShape.PointingHandCursor
             )
 
 
@@ -2190,7 +2247,7 @@ class NavBar(QWidget):
         self._cont_btn.clicked.connect(self.continue_clicked)
         lay.addWidget(self._cont_btn)
 
-    def update_for_step(self, idx: int) -> None:
+    def update_for_step(self, idx: int, can_advance: bool = True) -> None:
         self._back_btn.setEnabled(idx > 0)
         self._back_btn.setStyleSheet(
             f"QPushButton {{ background: none;"
@@ -2199,7 +2256,16 @@ class NavBar(QWidget):
             f" font-size: 12px; font-weight: 500; padding: 7px 16px; }}"
             f"QPushButton:disabled {{ opacity: 0.38; }}"
         )
-        self._cont_btn.setVisible(idx < len(STEPS) - 1)
+        is_last = idx >= len(STEPS) - 1
+        self._cont_btn.setVisible(not is_last)
+        self._cont_btn.setEnabled(can_advance)
+        bg = T.get("accent", "#4A55C0") if can_advance else T.get("surface3", "#E4E6ED")
+        fg = T.get("accent_fg", "#FFFFFF") if can_advance else T.get("text3", "#8B90A8")
+        self._cont_btn.setStyleSheet(
+            f"QPushButton {{ background: {bg}; color: {fg}; border: none;"
+            f" border-radius: 6px; font-size: 12px; font-weight: 600; padding: 7px 18px; }}"
+            f"QPushButton:disabled {{ background: {bg}; color: {fg}; }}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -2310,6 +2376,8 @@ class MainWindow(QMainWindow):
     # ── Navigation ───────────────────────────────────────────────────
 
     def _go_to_step_id(self, step_id: str) -> None:
+        if step_id != "files" and not self._state.files:
+            return
         idx = next((i for i, (sid, _, _) in enumerate(STEPS) if sid == step_id), 0)
         self._go_to_index(idx)
 
@@ -2317,9 +2385,13 @@ class MainWindow(QMainWindow):
         self._go_to_index(self._step_idx - 1)
 
     def _go_forward(self) -> None:
+        if not self._state.files:
+            return
         self._go_to_index(self._step_idx + 1)
 
     def _go_to_index(self, idx: int) -> None:
+        if idx > 0 and not self._state.files:
+            idx = 0
         idx = max(0, min(len(STEPS) - 1, idx))
         leaving = self._step_idx
         self._step_idx = idx
@@ -2329,28 +2401,33 @@ class MainWindow(QMainWindow):
         step_id = STEPS[idx][0]
         if step_id == "fields" and leaving != idx:
             self._fields_step.refresh()
+        elif step_id == "trim" and leaving != idx:
+            self._trim_step.refresh()
         elif step_id == "export":
             self._export_step.refresh()
 
         self._update_chrome()
 
     def _update_chrome(self) -> None:
+        can_advance = bool(self._state.files)
         completed = set(STEPS[i][0] for i in range(self._step_idx))
-        self._step_bar.set_active(STEPS[self._step_idx][0], completed)
-        self._nav_bar.update_for_step(self._step_idx)
+        self._step_bar.set_active(STEPS[self._step_idx][0], completed, can_advance)
+        self._nav_bar.update_for_step(self._step_idx, can_advance)
 
     # ── State updates ────────────────────────────────────────────────
 
     def _on_files_changed(self) -> None:
         _recompute_overlap(self._state)
         _recompute_recommendations(self._state)
-        # Set default choices to recommendations
         for fid in FIELD_ORDER:
-            self._state.field_choices.setdefault(fid, self._state.recommendations.get(fid))
-            # Always re-apply recommendations when files change
             self._state.field_choices[fid] = self._state.recommendations.get(fid)
         self._trim_step.refresh()
         self._files_step.refresh()
+        # If all files removed while on a later step, return to Files
+        if not self._state.files and self._step_idx > 0:
+            self._go_to_index(0)
+        else:
+            self._update_chrome()
 
     def _on_trim_changed(self) -> None:
         self._export_step.refresh_waveform()

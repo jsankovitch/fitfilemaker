@@ -1,3 +1,7 @@
+# Project meta (local only)
+CLAUDE.md
+design_handoff_fitfilemaker/
+
 # Python
 .venv/
 __pycache__/
