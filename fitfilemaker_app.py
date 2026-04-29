@@ -323,12 +323,16 @@ def _recompute_overlap(state: AppState) -> None:
     state.extra_fit = {}
     state.base_start_utc = None
 
-    if len(state.files) < 2:
+    if not state.files:
         return
 
     base = state.files[0]
     state.base_file_id = base.id
     state.base_start_utc = base.start_utc
+
+    if len(state.files) == 1:
+        state.base_samples = base.samples
+        return
 
     secondaries = []
     for wf in state.files[1:]:
@@ -358,7 +362,8 @@ def _recompute_recommendations(state: AppState) -> None:
 def _auto_filename(state: AppState) -> str:
     if state.files:
         try:
-            return f"merged_{state.files[0].start_utc.strftime('%Y-%m-%d_%H%M')}"
+            prefix = "trimmed" if len(state.files) == 1 else "merged"
+            return f"{prefix}_{state.files[0].start_utc.strftime('%Y-%m-%d_%H%M')}"
         except Exception:
             pass
     return "merged_workout"
@@ -970,6 +975,12 @@ class FilesStep(QWidget):
                 f"field recommendations are ready on the next step."
             )
             self._banner.show()
+        elif n == 1:
+            self._banner_text.setText(
+                "<b>1 file loaded.</b> You can trim and export this file, "
+                "or add a second file to merge."
+            )
+            self._banner.show()
         else:
             self._banner.hide()
 
@@ -1359,7 +1370,7 @@ class FieldsStep(QWidget):
             row.deleteLater()
         self._rows.clear()
 
-        if len(self._state.files) < 2:
+        if not self._state.files:
             return
 
         for fid in FIELD_ORDER:
@@ -2128,11 +2139,13 @@ class StepBar(QWidget):
 
         self._active = "files"
         self._completed: set = set()
+        self._can_advance: bool = False
         self._update_styles()
 
-    def set_active(self, step_id: str, completed: set) -> None:
+    def set_active(self, step_id: str, completed: set, can_advance: bool = True) -> None:
         self._active = step_id
         self._completed = completed
+        self._can_advance = can_advance
         self._update_styles()
 
     def _update_styles(self) -> None:
@@ -2141,17 +2154,26 @@ class StepBar(QWidget):
             label = btn.property("label")
             is_active = step_id == self._active
             is_done = step_id in self._completed
+            is_locked = not self._can_advance and not is_active and not is_done
 
             num_text = "✓" if is_done else num
-            col = T.get("accent", "#4A55C0") if is_active else (
-                T.get("text2", "#5B6080") if is_done else T.get("text3", "#8B90A8")
-            )
+            if is_active:
+                col = T.get("accent", "#4A55C0")
+            elif is_locked:
+                col = T.get("border2", "#C2C5D4")
+            elif is_done:
+                col = T.get("text2", "#5B6080")
+            else:
+                col = T.get("text3", "#8B90A8")
             border = f"border-bottom: 2px solid {T.get('accent','#4A55C0')};" if is_active else "border-bottom: 2px solid transparent;"
             wt = "600" if is_active else "500"
             btn.setText(f"{num_text}\n{label}")
             btn.setStyleSheet(
                 f"QPushButton {{ background: none; {border} color: {col};"
                 f" font-size: 12px; font-weight: {wt}; padding: 10px 0 8px 0; }}"
+            )
+            btn.setCursor(
+                Qt.CursorShape.ArrowCursor if is_locked else Qt.CursorShape.PointingHandCursor
             )
 
 
@@ -2190,7 +2212,7 @@ class NavBar(QWidget):
         self._cont_btn.clicked.connect(self.continue_clicked)
         lay.addWidget(self._cont_btn)
 
-    def update_for_step(self, idx: int) -> None:
+    def update_for_step(self, idx: int, can_advance: bool = True) -> None:
         self._back_btn.setEnabled(idx > 0)
         self._back_btn.setStyleSheet(
             f"QPushButton {{ background: none;"
@@ -2199,7 +2221,16 @@ class NavBar(QWidget):
             f" font-size: 12px; font-weight: 500; padding: 7px 16px; }}"
             f"QPushButton:disabled {{ opacity: 0.38; }}"
         )
-        self._cont_btn.setVisible(idx < len(STEPS) - 1)
+        is_last = idx >= len(STEPS) - 1
+        self._cont_btn.setVisible(not is_last)
+        self._cont_btn.setEnabled(can_advance)
+        bg = T.get("accent", "#4A55C0") if can_advance else T.get("surface3", "#E4E6ED")
+        fg = T.get("accent_fg", "#FFFFFF") if can_advance else T.get("text3", "#8B90A8")
+        self._cont_btn.setStyleSheet(
+            f"QPushButton {{ background: {bg}; color: {fg}; border: none;"
+            f" border-radius: 6px; font-size: 12px; font-weight: 600; padding: 7px 18px; }}"
+            f"QPushButton:disabled {{ background: {bg}; color: {fg}; }}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -2310,6 +2341,8 @@ class MainWindow(QMainWindow):
     # ── Navigation ───────────────────────────────────────────────────
 
     def _go_to_step_id(self, step_id: str) -> None:
+        if step_id != "files" and not self._state.files:
+            return
         idx = next((i for i, (sid, _, _) in enumerate(STEPS) if sid == step_id), 0)
         self._go_to_index(idx)
 
@@ -2317,9 +2350,13 @@ class MainWindow(QMainWindow):
         self._go_to_index(self._step_idx - 1)
 
     def _go_forward(self) -> None:
+        if not self._state.files:
+            return
         self._go_to_index(self._step_idx + 1)
 
     def _go_to_index(self, idx: int) -> None:
+        if idx > 0 and not self._state.files:
+            idx = 0
         idx = max(0, min(len(STEPS) - 1, idx))
         leaving = self._step_idx
         self._step_idx = idx
@@ -2329,28 +2366,33 @@ class MainWindow(QMainWindow):
         step_id = STEPS[idx][0]
         if step_id == "fields" and leaving != idx:
             self._fields_step.refresh()
+        elif step_id == "trim" and leaving != idx:
+            self._trim_step.refresh()
         elif step_id == "export":
             self._export_step.refresh()
 
         self._update_chrome()
 
     def _update_chrome(self) -> None:
+        can_advance = bool(self._state.files)
         completed = set(STEPS[i][0] for i in range(self._step_idx))
-        self._step_bar.set_active(STEPS[self._step_idx][0], completed)
-        self._nav_bar.update_for_step(self._step_idx)
+        self._step_bar.set_active(STEPS[self._step_idx][0], completed, can_advance)
+        self._nav_bar.update_for_step(self._step_idx, can_advance)
 
     # ── State updates ────────────────────────────────────────────────
 
     def _on_files_changed(self) -> None:
         _recompute_overlap(self._state)
         _recompute_recommendations(self._state)
-        # Set default choices to recommendations
         for fid in FIELD_ORDER:
-            self._state.field_choices.setdefault(fid, self._state.recommendations.get(fid))
-            # Always re-apply recommendations when files change
             self._state.field_choices[fid] = self._state.recommendations.get(fid)
         self._trim_step.refresh()
         self._files_step.refresh()
+        # If all files removed while on a later step, return to Files
+        if not self._state.files and self._step_idx > 0:
+            self._go_to_index(0)
+        else:
+            self._update_chrome()
 
     def _on_trim_changed(self) -> None:
         self._export_step.refresh_waveform()
