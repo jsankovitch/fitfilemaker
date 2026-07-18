@@ -1,0 +1,17 @@
+#!/bin/zsh
+# Launcher for FitFileMaker: runs the repo's app with the venv Python.
+# The venv lives outside iCloud Drive on purpose (iCloud breaks Qt's plugin scan).
+APP_DIR="$HOME/Library/Mobile Documents/com~apple~CloudDocs/Projects/software/fitfilemaker"
+PYTHON="$HOME/Documents/projects/fitfilemaker/bin/python"
+
+if [[ ! -x "$PYTHON" ]]; then
+  osascript -e 'display alert "FitFileMaker" message "Python venv not found at ~/Documents/projects/fitfilemaker. Recreate it and reinstall dependencies."'
+  exit 1
+fi
+if [[ ! -f "$APP_DIR/fitfilemaker_app.py" ]]; then
+  osascript -e 'display alert "FitFileMaker" message "fitfilemaker_app.py not found in the iCloud project folder. Is iCloud Drive synced?"'
+  exit 1
+fi
+
+cd "$APP_DIR"
+exec "$PYTHON" "$APP_DIR/fitfilemaker_app.py"

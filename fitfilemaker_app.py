@@ -41,7 +41,7 @@ from PySide6.QtCore import (
     Qt, QTimer, Signal, QObject, QPointF, QRectF, QSizeF,
 )
 from PySide6.QtGui import (
-    QColor, QFont, QFontDatabase, QPainter, QPainterPath,
+    QColor, QFont, QFontDatabase, QIcon, QPainter, QPainterPath,
     QPalette, QPen, QBrush, QLinearGradient, QDragEnterEvent, QDropEvent,
 )
 from PySide6.QtWidgets import (
@@ -2451,6 +2451,10 @@ def main() -> None:
     app = QApplication(sys.argv)
     app.setApplicationName("fitfilemaker")
     app.setStyle("Fusion")
+
+    icon_path = Path(__file__).parent / "FitFileMaker.app" / "Contents" / "Resources" / "AppIcon.icns"
+    if icon_path.exists():
+        app.setWindowIcon(QIcon(str(icon_path)))
 
     _load_fonts()
 
